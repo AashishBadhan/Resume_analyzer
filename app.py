@@ -7,7 +7,19 @@ from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="AI Resume Analyzer", layout="wide")
+st.set_page_config(page_title="AI ATS Dashboard", page_icon="👔", layout="wide")
+
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .block-container {padding-top: 2rem; padding-bottom: 2rem;}
+    .stButton>button {width: 100%; border-radius: 8px; font-weight: 600; background-color: #2e66ff; color: white; border: none; padding: 0.5rem 1rem;}
+    .stButton>button:hover {background-color: #1a4cdb;}
+    .stMetric {background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0;}
+    </style>
+""", unsafe_allow_html=True)
 
 @st.cache_resource
 def load_ai_model():
@@ -48,74 +60,89 @@ def get_match_score(jd, resume):
     vectors = TfidfVectorizer().fit_transform([jd, resume])
     return cosine_similarity(vectors)[0][1] * 100
 
-st.title("AI RESUME ANALYZER")
+st.markdown("<h1>👔 AI Applicant Tracking System</h1>", unsafe_allow_html=True)
+st.markdown("---")
 
 with st.sidebar:
-    st.header("Job Settings")
-    jd_input = st.text_area("Paste Job Description (JD)", height=200)
+    st.markdown("### ⚙️ ATS Settings")
+    jd_input = st.text_area("Paste Job Description (JD)", height=250, placeholder="Enter required skills...")
     uploaded_files = st.file_uploader("Upload Resumes (PDF)", type=["pdf"], accept_multiple_files=True)
 
 if uploaded_files:
     candidates = []
     
-    for file in uploaded_files:
-        raw_text, email, phone = extract_info(file)
-        cleaned = clean_text(raw_text)
-        
-        if not cleaned:
-            cleaned = "empty document format"
-        
-        prediction = bert_analyzer(cleaned, truncation=True, max_length=512)
-        label_id = int(prediction[0]['label'].split('_')[-1])
-        category = le.inverse_transform([label_id])[0]
-        
-        score = get_match_score(clean_text(jd_input), cleaned) if jd_input else 0
-        
-        candidates.append({
-            "Name": file.name,
-            "Category": category,
-            "Match Score (%)": round(score, 2),
-            "Email": email,
-            "Phone": phone,
-            "Text": cleaned
-        })
+    with st.spinner("🧠 AI is analyzing resumes..."):
+        for file in uploaded_files:
+            raw_text, email, phone = extract_info(file)
+            cleaned = clean_text(raw_text)
+            
+            if len(cleaned) < 50:
+                category = "Unreadable/Invalid Format"
+                score = 0
+            else:
+                prediction = bert_analyzer(cleaned, truncation=True, max_length=512)
+                label_id = int(prediction[0]['label'].split('_')[-1])
+                category = le.inverse_transform([label_id])[0]
+                score = get_match_score(clean_text(jd_input), cleaned) if jd_input else 0
+            
+            candidates.append({
+                "Name": file.name.replace('.pdf', ''),
+                "Category": category,
+                "Match Score (%)": round(score, 2),
+                "Email": email,
+                "Phone": phone,
+                "Text": cleaned
+            })
 
     df = pd.DataFrame(candidates).sort_values(by="Match Score (%)", ascending=False)
+    
+    valid_emails = df[df['Email'] != 'N/A']
+    dupes = valid_emails[valid_emails.duplicated(subset=['Email'], keep=False)]
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Applicants", len(df))
+    col2.metric("Highest Match Score", f"{df['Match Score (%)'].max()}%" if not df.empty else "0%")
+    col3.metric("Duplicates Detected", len(dupes))
+    
+    st.markdown("<br>", unsafe_allow_html=True)
 
     t1, t2, t3, t4, t5, t6 = st.tabs([
-        "Full Time", "Interns", "Duplicates", "Experienced", "Freshers", "Internship History"
+        "🏆 Full Time", "🎓 Interns", "⚠️ Duplicates", "💼 Experienced", "🌱 Freshers", "⏳ Internship History"
     ])
 
     with t1:
-        st.subheader("Selected Candidates (Full-Time)")
-        st.dataframe(df)
-        if st.button("Send Email to All"):
-            st.success("Drafts created for all selected candidates!")
+        valid_df = df[df['Category'] != "Unreadable/Invalid Format"]
+        st.dataframe(valid_df.drop(columns=['Text']), use_container_width=True, hide_index=True)
+        if st.button("✉️ Send Offer/Interview Email"):
+            st.success("Drafts created!")
 
     with t2:
-        st.subheader("Potential Interns")
-        interns = df[df['Text'].str.contains('intern|trainee', case=False)]
-        st.dataframe(interns)
+        interns = df[df['Text'].str.contains(r'\b(intern|internship|trainee)\b', case=False, regex=True) & ~df['Text'].str.contains(r'\b(managed|mentored|led)\b.*\binterns\b', case=False, regex=True)]
+        st.dataframe(interns.drop(columns=['Text']), use_container_width=True, hide_index=True)
 
     with t3:
-        st.subheader("Duplicate Applications")
-        dupes = df[df.duplicated(subset=['Email'], keep=False)]
-        st.dataframe(dupes)
+        st.dataframe(dupes.drop(columns=['Text']), use_container_width=True, hide_index=True)
+        if dupes.empty:
+            st.info("No duplicates found.")
 
     with t4:
-        st.subheader("Most Experienced")
-        exp = df[df['Text'].str.contains('experience|years', case=False)]
-        st.dataframe(exp)
+        exp = df[df['Text'].str.contains(r'\b[1-9][0-9]?\+?\s*(years|yrs)\b', case=False, regex=True)]
+        st.dataframe(exp.drop(columns=['Text']), use_container_width=True, hide_index=True)
 
     with t5:
-        st.subheader("Freshers")
-        fresh = df[~df['Text'].str.contains('experience|years', case=False)]
-        st.dataframe(fresh)
+        fresh = df[~df['Text'].str.contains(r'\b[1-9][0-9]?\+?\s*(years|yrs)\b', case=False, regex=True)]
+        st.dataframe(fresh.drop(columns=['Text']), use_container_width=True, hide_index=True)
 
     with t6:
-        st.subheader("Candidates with Prior Internships")
-        hist = df[df['Text'].str.contains('internship', case=False)]
-        st.dataframe(hist)
+        hist = df[df['Text'].str.contains(r'\binternship\b', case=False, regex=True)]
+        st.dataframe(hist.drop(columns=['Text']), use_container_width=True, hide_index=True)
+
+    st.markdown("---")
+    st.subheader("🔍 Detailed Candidate View")
+    selected_candidate = st.selectbox("Select a candidate to view full resume text:", df['Name'].tolist())
+    if selected_candidate:
+        resume_content = df[df['Name'] == selected_candidate]['Text'].values[0]
+        st.text_area(f"Resume Text for {selected_candidate}:", value=resume_content, height=400)
 
 else:
-    st.info("Please upload resumes from the sidebar.")
+    st.info("👈 Please upload candidate resumes (PDF) from the sidebar.")
