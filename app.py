@@ -34,7 +34,7 @@ def download_model_if_missing():
     if not os.path.exists('./distilbert_resume_model'):
         st.info("First time setup: Downloading AI Model from Google Drive (takes 1-2 minutes)...")
 
-        file_id = '1EpO45VyRGjRw5Nm5gfer0IdmkDqyj0hR' 
+        file_id = '1icAlKXQYahZKpSSoykEJY3vezqZBZif2' 
         output = 'model.zip'
         
         try:
