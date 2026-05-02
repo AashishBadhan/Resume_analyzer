@@ -52,6 +52,7 @@ download_model_if_missing()
 @st.cache_resource
 def load_ai_model():
     le = joblib.load('label_encoder.pkl')
+    model_path = os.path.abspath('./distilbert_resume_model')
     bert_analyzer = pipeline(
         "text-classification", 
         model='./distilbert_resume_model', 
