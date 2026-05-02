@@ -1,22 +1,27 @@
 import streamlit as st
 import fitz
 import re
+import pandas as pd
+import joblib
 import os
 import zipfile
 import gdown
-import pandas as pd
-import joblib
 from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="AI ATS Dashboard", page_icon="👔", layout="wide")
+st.set_page_config(
+    page_title="AI ATS Dashboard", 
+    page_icon="👔", 
+    layout="wide",
+    initial_sidebar_state="auto"
+)
 
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
-    header {visibility: hidden;}
+    header {background-color: transparent !important;} 
     .block-container {padding-top: 2rem; padding-bottom: 2rem;}
     .stButton>button {width: 100%; border-radius: 8px; font-weight: 600; background-color: #2e66ff; color: white; border: none; padding: 0.5rem 1rem;}
     .stButton>button:hover {background-color: #1a4cdb;}
@@ -24,24 +29,27 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-
 @st.cache_resource
 def download_model_if_missing():
     if not os.path.exists('./distilbert_resume_model'):
-        st.info("First time setup: Downloading AI Model (takes 1-2 minutes)...")
+        st.info("First time setup: Downloading AI Model from Google Drive (takes 1-2 minutes)...")
         file_id = '1f4lGmcd-U5d5fgqOgV2HHdZi7E1d_Gjj'
-        url = f'https://drive.google.com/uc?id={file_id}'
         output = 'model.zip'
-        gdown.download(url, output, quiet=False)
         
+        gdown.download(id=file_id, output=output, quiet=False)
+        
+        if not zipfile.is_zipfile(output):
+            st.error("Error: Downloaded file is not a valid ZIP.")
+            return
+            
         with zipfile.ZipFile(output, 'r') as zip_ref:
             zip_ref.extractall('.')
-        os.remove(output) 
+        os.remove(output)
         st.success("Model downloaded successfully!")
 
-# Is function ko call karna zaroori hai
 download_model_if_missing()
 
+@st.cache_resource
 def load_ai_model():
     le = joblib.load('label_encoder.pkl')
     bert_analyzer = pipeline(
@@ -80,11 +88,11 @@ def get_match_score(jd, resume):
     vectors = TfidfVectorizer().fit_transform([jd, resume])
     return cosine_similarity(vectors)[0][1] * 100
 
-st.markdown("<h1>👔 AI Applicant Tracking System</h1>", unsafe_allow_html=True)
+st.markdown("<h1>👔 AI Resume Analyzer System</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
 with st.sidebar:
-    st.markdown("### ⚙️ ATS Settings")
+    st.markdown("### ⚙️ Settings")
     jd_input = st.text_area("Paste Job Description (JD)", height=250, placeholder="Enter required skills...")
     uploaded_files = st.file_uploader("Upload Resumes (PDF)", type=["pdf"], accept_multiple_files=True)
 
