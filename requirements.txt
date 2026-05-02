@@ -1,7 +1,7 @@
 streamlit
 pymupdf
 pandas
-sci-kitlearn
+scikit-learn
 transformers
 torch
 joblib
