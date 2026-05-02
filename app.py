@@ -1,6 +1,9 @@
 import streamlit as st
 import fitz
 import re
+import os
+import zipfile
+import gdown
 import pandas as pd
 import joblib
 from transformers import pipeline
@@ -21,7 +24,24 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
 @st.cache_resource
+def download_model_if_missing():
+    if not os.path.exists('./distilbert_resume_model'):
+        st.info("First time setup: Downloading AI Model (takes 1-2 minutes)...")
+        file_id = '1f4lGmcd-U5d5fgqOgV2HHdZi7E1d_Gjj'
+        url = f'https://drive.google.com/uc?id={file_id}'
+        output = 'model.zip'
+        gdown.download(url, output, quiet=False)
+        
+        with zipfile.ZipFile(output, 'r') as zip_ref:
+            zip_ref.extractall('.')
+        os.remove(output) 
+        st.success("Model downloaded successfully!")
+
+# Is function ko call karna zaroori hai
+download_model_if_missing()
+
 def load_ai_model():
     le = joblib.load('label_encoder.pkl')
     bert_analyzer = pipeline(
