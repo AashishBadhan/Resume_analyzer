@@ -33,21 +33,28 @@ st.markdown("""
 def download_model_if_missing():
     if not os.path.exists('./distilbert_resume_model'):
         st.info("First time setup: Downloading AI Model from Google Drive (takes 1-2 minutes)...")
-        file_id = '1f4lGmcd-U5d5fgqOgV2HHdZi7E1d_Gjj'
+
+        file_id = '1EpO45VyRGjRw5Nm5gfer0IdmkDqyj0hR' 
         output = 'model.zip'
         
-        gdown.download(id=file_id, output=output, quiet=False)
-        
-        if not zipfile.is_zipfile(output):
-            st.error("Error: Downloaded file is not a valid ZIP.")
-            return
+        try:
+            gdown.download(id=file_id, output=output, quiet=False)
             
-        with zipfile.ZipFile(output, 'r') as zip_ref:
-            zip_ref.extractall('.')
-        os.remove(output)
-        st.success("Model downloaded successfully!")
-
-download_model_if_missing()
+            
+            if not zipfile.is_zipfile(output):
+                st.error("🚨 Error: Downloaded file is not a valid ZIP.")
+                st.warning("Solution: Please ensure you uploaded 'model.zip' and not a folder. Also check if the link is 'Anyone with the link'.")
+                st.stop()
+        
+            with zipfile.ZipFile(output, 'r') as zip_ref:
+                zip_ref.extractall('.')
+            
+            os.remove(output)
+            st.success("✅ Model downloaded and extracted successfully!")
+            
+        except Exception as e:
+            st.error(f"🚨 Download failed: {str(e)}")
+            st.stop()
 
 @st.cache_resource
 def load_ai_model():
