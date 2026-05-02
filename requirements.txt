@@ -1,0 +1,8 @@
+streamlit
+pymupdf
+pandas
+sci-kit learn
+transformers
+torch
+joblib
+gdown
