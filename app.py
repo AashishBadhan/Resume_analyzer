@@ -6,6 +6,7 @@ import joblib
 import os
 import zipfile
 import gdown
+import shutil
 from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -31,19 +32,22 @@ st.markdown("""
 
 @st.cache_resource
 def download_model_if_missing():
-    if not os.path.exists('./distilbert_resume_model'):
-        st.info("First time setup: Downloading AI Model from Google Drive (takes 1-2 minutes)...")
-
+    model_dir = os.path.abspath('./distilbert_resume_model')
+    config_file = os.path.join(model_dir, 'config.json')
+    
+    if not os.path.exists(config_file):
+        if os.path.exists(model_dir):
+            shutil.rmtree(model_dir)
+            
+        st.info("First time setup: Downloading AI Model (takes 1-2 minutes)...")
         file_id = '1icAlKXQYahZKpSSoykEJY3vezqZBZif2' 
         output = 'model.zip'
         
         try:
             gdown.download(id=file_id, output=output, quiet=False)
             
-            
             if not zipfile.is_zipfile(output):
                 st.error("🚨 Error: Downloaded file is not a valid ZIP.")
-                st.warning("Solution: Please ensure you uploaded 'model.zip' and not a folder. Also check if the link is 'Anyone with the link'.")
                 st.stop()
         
             with zipfile.ZipFile(output, 'r') as zip_ref:
@@ -55,6 +59,8 @@ def download_model_if_missing():
         except Exception as e:
             st.error(f"🚨 Download failed: {str(e)}")
             st.stop()
+
+download_model_if_missing()
 
 @st.cache_resource
 def load_ai_model():
