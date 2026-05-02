@@ -55,8 +55,8 @@ def load_ai_model():
     model_path = os.path.abspath('./distilbert_resume_model')
     bert_analyzer = pipeline(
         "text-classification", 
-        model='./distilbert_resume_model', 
-        tokenizer='./distilbert_resume_model'
+        model=model_path, 
+        tokenizer=model_path
     )
     return le, bert_analyzer
 
