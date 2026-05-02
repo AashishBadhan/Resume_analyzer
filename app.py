@@ -138,8 +138,9 @@ if uploaded_files:
 
     df = pd.DataFrame(candidates).sort_values(by="Match Score (%)", ascending=False)
     
-    valid_emails = df[df['Email'] != 'N/A']
-    dupes = valid_emails[valid_emails.duplicated(subset=['Email'], keep=False)]
+    email_dupes = df[(df['Email'] != 'N/A') & (df['Email'].duplicated(keep=False))]
+    phone_dupes = df[(df['Phone'] != 'N/A') & (df['Phone'].duplicated(keep=False))]
+    dupes = pd.concat([email_dupes, phone_dupes]).drop_duplicates(subset=['Name'])
     
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Applicants", len(df))
