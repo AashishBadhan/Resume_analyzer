@@ -1,5 +1,5 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import fitz
 import re
 import pandas as pd
 import joblib
@@ -10,7 +10,6 @@ import shutil
 from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
-
 
 st.set_page_config(
     page_title="AI ATS Dashboard", 
@@ -28,11 +27,9 @@ st.markdown("""
     .stButton>button {width: 100%; border-radius: 8px; font-weight: 600; background-color: #2e66ff; color: white; border: none; padding: 0.5rem 1rem;}
     .stButton>button:hover {background-color: #1a4cdb;}
     .stMetric {background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #e0e0e0; text-align: center;}
-    /* Expander Styling */
     .streamlit-expanderHeader {font-size: 16px; font-weight: bold; color: #1a4cdb;}
     </style>
 """, unsafe_allow_html=True)
-
 
 @st.cache_resource
 def download_model_if_missing():
@@ -40,7 +37,6 @@ def download_model_if_missing():
     config_file = os.path.join(model_dir, 'config.json')
     
     if not os.path.exists(config_file):
-        # Purana aadha-adhura folder hatao
         if os.path.exists(model_dir):
             shutil.rmtree(model_dir)
         
@@ -55,13 +51,11 @@ def download_model_if_missing():
                 st.error("🚨 Error: Downloaded file is not a valid ZIP. Please check Drive link permissions.")
                 st.stop()
         
-            # 1. Zip ko ek temporary folder mein extract karo
             os.makedirs(temp_extract_dir, exist_ok=True)
             with zipfile.ZipFile(output, 'r') as zip_ref:
                 zip_ref.extractall(temp_extract_dir)
             os.remove(output)
             
-            # 2. SMART SEARCH: config.json ko dhoondho (chahe kitna bhi andar chupa ho)
             found_model_path = None
             for root, dirs, files in os.walk(temp_extract_dir):
                 if 'config.json' in files:
@@ -73,16 +67,13 @@ def download_model_if_missing():
                 shutil.rmtree(temp_extract_dir)
                 st.stop()
                 
-            # 3. Asli files ko nikal kar sahi jagah move karo
             os.makedirs(model_dir, exist_ok=True)
             for item in os.listdir(found_model_path):
                 source_item = os.path.join(found_model_path, item)
                 dest_item = os.path.join(model_dir, item)
                 shutil.move(source_item, dest_item)
                 
-            # 4. Kachra (temp folder) saaf karo
             shutil.rmtree(temp_extract_dir)
-            
             st.success("✅ AI Model correctly located, extracted, and activated!")
             
         except Exception as e:
@@ -96,7 +87,6 @@ def load_ai_model():
     le = joblib.load('label_encoder.pkl')
     base_model_path = os.path.abspath('./distilbert_resume_model')
     
-    # Check if config.json is hidden inside nested folders
     actual_model_path = base_model_path
     if not os.path.exists(os.path.join(base_model_path, 'config.json')):
         for root, dirs, files in os.walk(base_model_path):
@@ -128,7 +118,6 @@ def extract_info(uploaded_file):
     email = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
     phone = re.findall(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text)
     
-    # Extract Name (Smart Heuristic)
     ignore_words = ["resume", "curriculum vitae", "cv", "bio-data"]
     lines = [line.strip() for line in text.split('\n') if len(line.strip()) > 2]
     extracted_name = "Unknown"
@@ -137,7 +126,6 @@ def extract_info(uploaded_file):
             extracted_name = line.title()
             break
 
-    # Extract Experience
     exp_match = re.search(r'\b([1-9][0-9]?)\+?\s*(?:years|yrs)\b', text, re.IGNORECASE)
     experience = f"{exp_match.group(1)} Years" if exp_match else "Fresher"
     
@@ -185,25 +173,21 @@ if uploaded_files:
 
     df = pd.DataFrame(candidates).sort_values(by="JD Match Score (%)", ascending=False)
     
-    # Duplicate Detection
     email_dupes = df[(df['Email'] != 'N/A') & (df['Email'].duplicated(keep=False))]
     phone_dupes = df[(df['Phone'] != 'N/A') & (df['Phone'].duplicated(keep=False))]
     dupes = pd.concat([email_dupes, phone_dupes]).drop_duplicates(subset=['File Name'])
     
-    # Top Metrics
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Applicants", len(df))
     col2.metric("Highest JD Match", f"{df['JD Match Score (%)'].max()}%" if not df.empty else "0%")
     col3.metric("Duplicates Detected", len(dupes))
     st.markdown("<br>", unsafe_allow_html=True)
 
-    # Reusable UI component to show candidates via Expanders
     def display_candidates(candidate_df, tab_name):
         if candidate_df.empty:
             st.info("No candidates found in this category.")
             return
             
-        # enumerate(candidate_df.iterrows()) se hume ek unique index (i) milega
         for i, (idx, row) in enumerate(candidate_df.iterrows()):
             with st.expander(f"👤 {row['Extracted Name']} | 💼 {row['Experience']} | 🎯 Score: {row['JD Match Score (%)']}%"):
                 c1, c2 = st.columns(2)
@@ -215,15 +199,12 @@ if uploaded_files:
                 st.markdown("---")
                 st.markdown("#### 📄 Extracted Resume Text")
                 
-                # 🚨 FIX: Yahan key mein tab_name aur ek unique id (i) add kar diya hai
                 unique_key = f"text_{tab_name}_{i}_{row['File Name']}"
                 st.text_area("Resume Content", value=row['Raw Text'], height=250, disabled=True, label_visibility="collapsed", key=unique_key)
 
-    # Smart Tabs
     t1, t2, t3, t4 = st.tabs(["🏆 All Matches", "💼 Experienced Pros", "🌱 Freshers", "⚠️ Duplicates"])
 
     with t1:
-        # Har function call mein tab ka naam bhej rahe hain taaki key unique rahe
         display_candidates(df[df['Predicted Domain'] != "Unreadable/Invalid Format"], "all_matches")
 
     with t2:
@@ -237,9 +218,5 @@ if uploaded_files:
     with t4:
         display_candidates(dupes, "duplicates")
 
-    with t4:
-        display_candidates(dupes)
-
 else:
     st.info("👈 Waiting for action! Please upload candidate resumes from the sidebar to begin.")
-    
