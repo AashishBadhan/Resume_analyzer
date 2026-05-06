@@ -44,7 +44,10 @@ def download_model_if_missing():
         if os.path.exists(model_dir):
             shutil.rmtree(model_dir)
             
-        file_id = '1cjxek02nIA36_8lmC-B66HwYjPR6wsyS' 
+        st.info("Downloading the 98% Accurate AI Model (takes 1-2 minutes)...")
+        
+        # 👇 APNI GOOGLE DRIVE FILE ID YAHAN DAALEIN 👇
+        file_id = 'YOUR_NEW_FILE_ID_HERE' 
         output = 'model.zip'
         temp_extract_dir = os.path.abspath('./temp_model_extract')
         
@@ -87,14 +90,24 @@ def download_model_if_missing():
             
         except Exception as e:
             st.error(f"🚨 Download/Extraction failed: {str(e)}")
-            st.stop()        
+            st.stop()
 
+download_model_if_missing()
 
 @st.cache_resource
 def load_ai_model():
     le = joblib.load('label_encoder.pkl')
-    model_path = os.path.abspath('./distilbert_resume_model')
-    bert_analyzer = pipeline("text-classification", model=model_path, tokenizer=model_path)
+    base_model_path = os.path.abspath('./distilbert_resume_model')
+    
+    # Check if config.json is hidden inside nested folders
+    actual_model_path = base_model_path
+    if not os.path.exists(os.path.join(base_model_path, 'config.json')):
+        for root, dirs, files in os.walk(base_model_path):
+            if 'config.json' in files:
+                actual_model_path = root
+                break
+                
+    bert_analyzer = pipeline("text-classification", model=actual_model_path, tokenizer=actual_model_path)
     return le, bert_analyzer
 
 le, bert_analyzer = load_ai_model()
@@ -115,11 +128,10 @@ def extract_info(uploaded_file):
     for page in doc:
         text += page.get_text()
     
-    # Extract Email & Phone
     email = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', text)
     phone = re.findall(r'(?:\+?\d{1,3}[-.\s]?)?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text)
     
-    # Extract Name (Smart Heuristic: usually the first non-empty line that isn't 'resume')
+    # Extract Name (Smart Heuristic)
     ignore_words = ["resume", "curriculum vitae", "cv", "bio-data"]
     lines = [line.strip() for line in text.split('\n') if len(line.strip()) > 2]
     extracted_name = "Unknown"
@@ -128,7 +140,7 @@ def extract_info(uploaded_file):
             extracted_name = line.title()
             break
 
-    # Extract Experience (Looking for "X years")
+    # Extract Experience
     exp_match = re.search(r'\b([1-9][0-9]?)\+?\s*(?:years|yrs)\b', text, re.IGNORECASE)
     experience = f"{exp_match.group(1)} Years" if exp_match else "Fresher"
     
@@ -195,7 +207,6 @@ if uploaded_files:
             return
             
         for _, row in candidate_df.iterrows():
-            # Expander header shows Name, Experience, and Match Score
             with st.expander(f"👤 {row['Extracted Name']} | 💼 {row['Experience']} | 🎯 Score: {row['JD Match Score (%)']}%"):
                 c1, c2 = st.columns(2)
                 c1.write(f"**Predicted Domain:** {row['Predicted Domain']}")
@@ -203,12 +214,11 @@ if uploaded_files:
                 c2.write(f"**Email:** {row['Email']}")
                 c2.write(f"**Phone:** {row['Phone']}")
                 
-                # Reading the full resume text right here!
                 st.markdown("---")
                 st.markdown("#### 📄 Extracted Resume Text")
-                st.text_area("Resume Content (Scroll to read)", value=row['Raw Text'], height=250, disabled=True, label_visibility="collapsed")
+                st.text_area("Resume Content", value=row['Raw Text'], height=250, disabled=True, label_visibility="collapsed", key=row['File Name'])
 
-    # Smart Tabs (4 instead of 5)
+    # Smart Tabs
     t1, t2, t3, t4 = st.tabs(["🏆 All Matches", "💼 Experienced Pros", "🌱 Freshers", "⚠️ Duplicates"])
 
     with t1:
@@ -227,3 +237,4 @@ if uploaded_files:
 
 else:
     st.info("👈 Waiting for action! Please upload candidate resumes from the sidebar to begin.")
+    
