@@ -43,11 +43,8 @@ def download_model_if_missing():
         # Purana aadha-adhura folder hatao
         if os.path.exists(model_dir):
             shutil.rmtree(model_dir)
-            
-        st.info("Downloading the 98% Accurate AI Model (takes 1-2 minutes)...")
         
-        # 👇 APNI GOOGLE DRIVE FILE ID YAHAN DAALEIN 👇
-        file_id = 'YOUR_NEW_FILE_ID_HERE' 
+        file_id = '1cjxek02nIA36_8lmC-B66HwYjPR6wsyS' 
         output = 'model.zip'
         temp_extract_dir = os.path.abspath('./temp_model_extract')
         
