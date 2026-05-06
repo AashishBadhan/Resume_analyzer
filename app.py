@@ -33,17 +33,20 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+
 @st.cache_resource
 def download_model_if_missing():
-    model_dir = os.path.abspath('./model')
+    model_dir = os.path.abspath('./distilbert_resume_model')
     config_file = os.path.join(model_dir, 'config.json')
     
     if not os.path.exists(config_file):
+        # Purana aadha-adhura folder hatao
         if os.path.exists(model_dir):
             shutil.rmtree(model_dir)
             
         file_id = '1cjxek02nIA36_8lmC-B66HwYjPR6wsyS' 
         output = 'model.zip'
+        temp_extract_dir = os.path.abspath('./temp_model_extract')
         
         try:
             gdown.download(id=file_id, output=output, quiet=False)
@@ -52,26 +55,40 @@ def download_model_if_missing():
                 st.error("🚨 Error: Downloaded file is not a valid ZIP. Please check Drive link permissions.")
                 st.stop()
         
-            # Naya Bulletproof Extraction Logic
-            os.makedirs(model_dir, exist_ok=True)
+            # 1. Zip ko ek temporary folder mein extract karo
+            os.makedirs(temp_extract_dir, exist_ok=True)
             with zipfile.ZipFile(output, 'r') as zip_ref:
-                zip_ref.extractall(model_dir) # Seedha folder ke andar extract karega
-            
+                zip_ref.extractall(temp_extract_dir)
             os.remove(output)
             
-            # Agar folder ke andar ek aur folder ban gaya hai (Zip Inception Fix)
-            nested_dir = os.path.join(model_dir, 'distilbert_resume_model')
-            if os.path.exists(os.path.join(nested_dir, 'config.json')):
-                for item in os.listdir(nested_dir):
-                    shutil.move(os.path.join(nested_dir, item), model_dir)
-                os.rmdir(nested_dir)
+            # 2. SMART SEARCH: config.json ko dhoondho (chahe kitna bhi andar chupa ho)
+            found_model_path = None
+            for root, dirs, files in os.walk(temp_extract_dir):
+                if 'config.json' in files:
+                    found_model_path = root
+                    break
+            
+            if not found_model_path:
+                st.error("🚨 Error: 'config.json' file not found inside the ZIP! Did you zip the right folder in Colab?")
+                shutil.rmtree(temp_extract_dir)
+                st.stop()
                 
-            st.success("✅ AI Model structure fixed and activated successfully!")
+            # 3. Asli files ko nikal kar sahi jagah move karo
+            os.makedirs(model_dir, exist_ok=True)
+            for item in os.listdir(found_model_path):
+                source_item = os.path.join(found_model_path, item)
+                dest_item = os.path.join(model_dir, item)
+                shutil.move(source_item, dest_item)
+                
+            # 4. Kachra (temp folder) saaf karo
+            shutil.rmtree(temp_extract_dir)
+            
+            st.success("✅ AI Model correctly located, extracted, and activated!")
             
         except Exception as e:
-            st.error(f"🚨 Download failed: {str(e)}")
-            st.stop()
-download_model_if_missing()
+            st.error(f"🚨 Download/Extraction failed: {str(e)}")
+            st.stop()        
+
 
 @st.cache_resource
 def load_ai_model():
