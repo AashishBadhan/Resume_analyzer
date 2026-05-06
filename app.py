@@ -42,20 +42,35 @@ def download_model_if_missing():
         if os.path.exists(model_dir):
             shutil.rmtree(model_dir)
             
-        
         file_id = '1cjxek02nIA36_8lmC-B66HwYjPR6wsyS' 
         output = 'model.zip'
         
         try:
             gdown.download(id=file_id, output=output, quiet=False)
+            
+            if not zipfile.is_zipfile(output):
+                st.error("🚨 Error: Downloaded file is not a valid ZIP. Please check Drive link permissions.")
+                st.stop()
+        
+            # Naya Bulletproof Extraction Logic
+            os.makedirs(model_dir, exist_ok=True)
             with zipfile.ZipFile(output, 'r') as zip_ref:
-                zip_ref.extractall('.')
+                zip_ref.extractall(model_dir) # Seedha folder ke andar extract karega
+            
             os.remove(output)
-            st.success("✅ AI Model activated successfully!")
+            
+            # Agar folder ke andar ek aur folder ban gaya hai (Zip Inception Fix)
+            nested_dir = os.path.join(model_dir, 'distilbert_resume_model')
+            if os.path.exists(os.path.join(nested_dir, 'config.json')):
+                for item in os.listdir(nested_dir):
+                    shutil.move(os.path.join(nested_dir, item), model_dir)
+                os.rmdir(nested_dir)
+                
+            st.success("✅ AI Model structure fixed and activated successfully!")
+            
         except Exception as e:
             st.error(f"🚨 Download failed: {str(e)}")
             st.stop()
-
 download_model_if_missing()
 
 @st.cache_resource
