@@ -198,12 +198,13 @@ if uploaded_files:
     st.markdown("<br>", unsafe_allow_html=True)
 
     # Reusable UI component to show candidates via Expanders
-    def display_candidates(candidate_df):
+    def display_candidates(candidate_df, tab_name):
         if candidate_df.empty:
             st.info("No candidates found in this category.")
             return
             
-        for _, row in candidate_df.iterrows():
+        # enumerate(candidate_df.iterrows()) se hume ek unique index (i) milega
+        for i, (idx, row) in enumerate(candidate_df.iterrows()):
             with st.expander(f"👤 {row['Extracted Name']} | 💼 {row['Experience']} | 🎯 Score: {row['JD Match Score (%)']}%"):
                 c1, c2 = st.columns(2)
                 c1.write(f"**Predicted Domain:** {row['Predicted Domain']}")
@@ -213,21 +214,28 @@ if uploaded_files:
                 
                 st.markdown("---")
                 st.markdown("#### 📄 Extracted Resume Text")
-                st.text_area("Resume Content", value=row['Raw Text'], height=250, disabled=True, label_visibility="collapsed", key=row['File Name'])
+                
+                # 🚨 FIX: Yahan key mein tab_name aur ek unique id (i) add kar diya hai
+                unique_key = f"text_{tab_name}_{i}_{row['File Name']}"
+                st.text_area("Resume Content", value=row['Raw Text'], height=250, disabled=True, label_visibility="collapsed", key=unique_key)
 
     # Smart Tabs
     t1, t2, t3, t4 = st.tabs(["🏆 All Matches", "💼 Experienced Pros", "🌱 Freshers", "⚠️ Duplicates"])
 
     with t1:
-        display_candidates(df[df['Predicted Domain'] != "Unreadable/Invalid Format"])
+        # Har function call mein tab ka naam bhej rahe hain taaki key unique rahe
+        display_candidates(df[df['Predicted Domain'] != "Unreadable/Invalid Format"], "all_matches")
 
     with t2:
         exp = df[df['Experience'] != "Fresher"]
-        display_candidates(exp)
+        display_candidates(exp, "experienced")
 
     with t3:
         fresh = df[df['Experience'] == "Fresher"]
-        display_candidates(fresh)
+        display_candidates(fresh, "freshers")
+
+    with t4:
+        display_candidates(dupes, "duplicates")
 
     with t4:
         display_candidates(dupes)
