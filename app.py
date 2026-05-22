@@ -49,6 +49,23 @@ html, body, [class*="css"] {
     padding-bottom: 2rem;
 }
 
+section[data-testid="stSidebar"] {
+    min-width: 340px !important;
+    max-width: 340px !important;
+    border-right: 1px solid rgba(128,128,128,0.15);
+}
+
+section[data-testid="stSidebar"] .block-container {
+    padding-top: 1rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+section[data-testid="stSidebar"] .stTextArea textarea {
+    min-height: 220px !important;
+}
+
+
 .main-title {
     font-size: 3rem;
     font-weight: 800;
@@ -70,7 +87,7 @@ html, body, [class*="css"] {
 }
 
 .stButton > button {
-    width: 100%;
+    width: 100% !important;
     border-radius: 14px;
     font-weight: 700;
     border: none;
@@ -425,15 +442,26 @@ st.markdown('<div class="sub-title">Advanced Resume Ranking, Screening and AI-Ba
 
 
 with st.sidebar:
-    st.markdown("### Control Panel")
+    st.markdown("## ⚙️ Control Panel")
 
-    st.button(
-        "Toggle Theme",
-        on_click=toggle_theme,
-        use_container_width=True
-    )
+    theme_col1, theme_col2 = st.columns([1, 2])
+
+    with theme_col1:
+        st.button(
+            "🌓",
+            on_click=toggle_theme,
+            use_container_width=True
+        )
+
+    with theme_col2:
+        st.markdown(
+            f"<div style='padding-top:8px;font-weight:600;'>Current Theme: {st.session_state.theme.title()}</div>",
+            unsafe_allow_html=True
+        )
 
     st.markdown("---")
+
+    st.markdown("### 📄 Job Description")
 
     jd_input = st.text_area(
         "Job Description",
@@ -444,8 +472,14 @@ with st.sidebar:
     uploaded_files = st.file_uploader(
         "Upload Resume PDFs",
         type=["pdf"],
-        accept_multiple_files=True
+        accept_multiple_files=True,
+        help="Upload one or multiple PDF resumes"
     )
+
+    if uploaded_files:
+        st.success(f"{len(uploaded_files)} Resume(s) Uploaded")
+
+    st.markdown("---")
 
     analyze_button = st.button(
         "Analyze Resumes",
