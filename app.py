@@ -35,25 +35,31 @@ div[data-testid="metric-container"] {border-radius: 12px; padding: 20px; text-al
 
 if st.session_state.theme == 'Dark':
     theme_css = """
-    .stApp {background-color: #0e1117; color: #fafafa;}
-    .sub-header {color: #aaa;}
-    [data-testid="stSidebar"] {background-color: #262730; border-right: 1px solid #333;}
-    div[data-testid="metric-container"] {background: #1e1e1e; border: 1px solid #333; box-shadow: 0 4px 6px rgba(0,0,0,0.4);}
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp span, .stApp li, .stApp label {color: #fafafa !important;}
+    .sub-header {color: #aaa !important;}
+    [data-testid="stSidebar"] {background-color: #1e1e24; border-right: 1px solid #333;}
+    div[data-testid="metric-container"] {background: #2b2b36; border: 1px solid #444; box-shadow: 0 4px 6px rgba(0,0,0,0.4);}
     [data-testid="stMetricValue"] {color: #4facfe !important;}
-    [data-testid="stMetricLabel"] {color: #aaa !important;}
-    .streamlit-expanderHeader {color: #4facfe; background-color: #1e1e1e;}
-    .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #1e1e1e 100%); color: white;}
+    [data-testid="stMetricLabel"] {color: #ccc !important;}
+    .streamlit-expanderHeader {color: #4facfe !important; background-color: #2b2b36 !important;}
+    .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #1e1e1e 100%); color: white !important;}
+    .stTextArea textarea {background-color: #2b2b36 !important; color: #fafafa !important; border: 1px solid #555 !important;}
+    div[role="tablist"] button[aria-selected="false"] p {color: #aaa !important;}
+    div[role="tablist"] button[aria-selected="true"] p {color: #4facfe !important;}
     """
 else:
     theme_css = """
-    .stApp {background-color: #ffffff; color: #111111;}
-    .sub-header {color: #666;}
+    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp span, .stApp li, .stApp label {color: #111111 !important;}
+    .sub-header {color: #666 !important;}
     [data-testid="stSidebar"] {background-color: #f8f9fa; border-right: 1px solid #e0e0e0;}
     div[data-testid="metric-container"] {background: white; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px rgba(0,0,0,0.05);}
     [data-testid="stMetricValue"] {color: #1e3c72 !important;}
     [data-testid="stMetricLabel"] {color: #555 !important;}
-    .streamlit-expanderHeader {color: #1e3c72; background-color: #f1f5f9;}
-    .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); color: white;}
+    .streamlit-expanderHeader {color: #1e3c72 !important; background-color: #f1f5f9 !important;}
+    .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); color: white !important;}
+    .stTextArea textarea {background-color: #ffffff !important; color: #111111 !important; border: 1px solid #ccc !important;}
+    div[role="tablist"] button[aria-selected="false"] p {color: #555 !important;}
+    div[role="tablist"] button[aria-selected="true"] p {color: #1e3c72 !important;}
     """
 
 st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
