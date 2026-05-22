@@ -1,6 +1,3 @@
-# app.py
-
-```python
 import os
 import re
 import fitz
