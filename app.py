@@ -12,7 +12,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(
-    page_title="Messy Data AI Resume Analyzer",
+    page_title="AI Resume Analyzer",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
