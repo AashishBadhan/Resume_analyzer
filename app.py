@@ -1,274 +1,596 @@
-import streamlit as st
-import fitz
-import re
-import pandas as pd
-import joblib
+# app.py
+
+```python
 import os
+import re
+import fitz
+import joblib
+import shutil
 import zipfile
 import gdown
-import shutil
+import pandas as pd
+import streamlit as st
 from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(page_title="AI Smart ATS | Premium", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="AI Resume Analyzer Pro",
+    page_icon="🚀",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-if 'theme' not in st.session_state:
-    st.session_state.theme = 'Dark'
+if "theme" not in st.session_state:
+    st.session_state.theme = "dark"
+
+if "processed" not in st.session_state:
+    st.session_state.processed = False
+
+if "results" not in st.session_state:
+    st.session_state.results = pd.DataFrame()
+
 
 def toggle_theme():
-    st.session_state.theme = 'Light' if st.session_state.theme == 'Dark' else 'Dark'
+    st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
+
 
 base_css = """
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
-html, body, [class*="css"] {font-family: 'Plus Jakarta Sans', sans-serif;}
-#MainMenu {visibility: hidden;} footer {visibility: hidden;} header {background-color: transparent !important;}
-.main-header {font-size: 46px; font-weight: 800; background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; margin-bottom: 5px; animation: fadeIn 1s ease-in;}
-.sub-header {text-align: center; font-size: 18px; margin-bottom: 40px; font-weight: 600;}
-@keyframes fadeIn {from {opacity: 0; transform: translateY(-20px);} to {opacity: 1; transform: translateY(0);}}
-.stButton>button {width: 100%; border-radius: 10px; font-weight: 800; transition: all 0.4s ease; border: none; padding: 0.7rem; font-size: 16px;}
-.stButton>button:hover {transform: scale(1.02); box-shadow: 0 8px 20px rgba(79, 172, 254, 0.4);}
-[data-testid="stMetricValue"] {font-size: 32px !important; font-weight: 800 !important;}
-[data-testid="stMetricLabel"] {font-size: 15px !important; font-weight: 600 !important; text-transform: uppercase; letter-spacing: 1px;}
-div[data-testid="metric-container"] {border-radius: 16px; padding: 25px; text-align: center; transition: all 0.3s ease;}
-div[data-testid="metric-container"]:hover {transform: translateY(-5px);}
-.streamlit-expanderHeader {font-size: 18px; font-weight: 800; border-radius: 10px; transition: all 0.3s ease; padding: 15px !important;}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+#MainMenu, footer, header {
+    visibility: hidden;
+}
+
+.block-container {
+    padding-top: 1rem;
+    padding-bottom: 2rem;
+}
+
+.main-title {
+    font-size: 3rem;
+    font-weight: 800;
+    text-align: center;
+    margin-bottom: 0.5rem;
+}
+
+.sub-title {
+    text-align: center;
+    font-size: 1rem;
+    opacity: 0.8;
+    margin-bottom: 2rem;
+}
+
+.card {
+    padding: 1.2rem;
+    border-radius: 18px;
+    margin-bottom: 1rem;
+}
+
+.stButton > button {
+    width: 100%;
+    border-radius: 14px;
+    font-weight: 700;
+    border: none;
+    transition: 0.25s ease;
+    padding: 0.75rem 1rem;
+}
+
+.stButton > button:hover {
+    transform: translateY(-2px);
+}
+
+div[data-testid="metric-container"] {
+    border-radius: 18px;
+    padding: 1rem;
+}
+
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+}
+
+.stTabs [data-baseweb="tab"] {
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-weight: 600;
+}
+
+.resume-box {
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 14px;
+}
+
+.highlight {
+    font-weight: 700;
+}
+</style>
 """
 
-if st.session_state.theme == 'Dark':
-    theme_css = """
-    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp span, .stApp li, .stApp label {color: #ffffff !important;}
-    .sub-header {color: #a0aec0 !important;}
-    [data-testid="stSidebar"] {background-color: #0b0f19; border-right: 1px solid #1f2937;}
-    div[data-testid="metric-container"] {background: linear-gradient(145deg, #111827, #1f2937); border: 1px solid #374151; box-shadow: 0 10px 25px rgba(0,0,0,0.5);}
-    [data-testid="stMetricValue"] {color: #00f2fe !important;}
-    [data-testid="stMetricLabel"] {color: #9ca3af !important;}
-    .streamlit-expanderHeader {color: #00f2fe !important; background-color: #111827 !important; border: 1px solid #374151;}
-    .stButton>button {background: linear-gradient(90deg, #1e3a8a 0%, #111827 100%); color: white !important;}
-    .stTextArea textarea {background-color: #111827 !important; color: #ffffff !important; border: 1px solid #374151 !important; border-radius: 10px;}
-    div[role="tablist"] button[aria-selected="false"] p {color: #9ca3af !important;}
-    div[role="tablist"] button[aria-selected="true"] p {color: #00f2fe !important; font-weight: 800 !important;}
-    """
+
+dark_css = """
+<style>
+.stApp {
+    background: #0b1120;
+    color: #ffffff;
+}
+
+.main-title {
+    background: linear-gradient(90deg,#38bdf8,#8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card,
+div[data-testid="metric-container"],
+.resume-box,
+.stTabs [data-baseweb="tab"] {
+    background: #111827;
+    border: 1px solid rgba(255,255,255,0.08);
+}
+
+.stButton > button {
+    background: linear-gradient(90deg,#2563eb,#7c3aed);
+    color: white;
+}
+
+.stTextArea textarea,
+.stTextInput input {
+    background: #111827 !important;
+    color: white !important;
+}
+</style>
+"""
+
+
+light_css = """
+<style>
+.stApp {
+    background: #f8fafc;
+    color: #0f172a;
+}
+
+.main-title {
+    background: linear-gradient(90deg,#2563eb,#9333ea);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card,
+div[data-testid="metric-container"],
+.resume-box,
+.stTabs [data-baseweb="tab"] {
+    background: white;
+    border: 1px solid rgba(15,23,42,0.08);
+}
+
+.stButton > button {
+    background: linear-gradient(90deg,#2563eb,#7c3aed);
+    color: white;
+}
+</style>
+"""
+
+st.markdown(base_css, unsafe_allow_html=True)
+
+if st.session_state.theme == "dark":
+    st.markdown(dark_css, unsafe_allow_html=True)
 else:
-    theme_css = """
-    .stApp, .stApp p, .stApp h1, .stApp h2, .stApp h3, .stApp h4, .stApp span, .stApp li, .stApp label {color: #0f172a !important;}
-    .sub-header {color: #64748b !important;}
-    [data-testid="stSidebar"] {background-color: #f8fafc; border-right: 1px solid #e2e8f0;}
-    div[data-testid="metric-container"] {background: #ffffff; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px rgba(0,0,0,0.05);}
-    [data-testid="stMetricValue"] {color: #2563eb !important;}
-    [data-testid="stMetricLabel"] {color: #64748b !important;}
-    .streamlit-expanderHeader {color: #1e40af !important; background-color: #f1f5f9 !important; border: 1px solid #e2e8f0;}
-    .stButton>button {background: linear-gradient(90deg, #2563eb 0%, #1e40af 100%); color: white !important;}
-    .stTextArea textarea {background-color: #ffffff !important; color: #0f172a !important; border: 1px solid #cbd5e1 !important; border-radius: 10px;}
-    div[role="tablist"] button[aria-selected="false"] p {color: #64748b !important;}
-    div[role="tablist"] button[aria-selected="true"] p {color: #2563eb !important; font-weight: 800 !important;}
-    """
+    st.markdown(light_css, unsafe_allow_html=True)
 
-st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
-@st.cache_resource
-def download_model_if_missing():
-    model_dir = os.path.abspath('./distilbert_resume_model')
-    config_file = os.path.join(model_dir, 'config.json')
-    if not os.path.exists(config_file):
-        if os.path.exists(model_dir): shutil.rmtree(model_dir)
-        file_id = '1cjxek02nIA36_8lmC-B66HwYjPR6wsyS' 
-        output = 'model.zip'
-        temp_extract_dir = os.path.abspath('./temp_model_extract')
-        try:
-            with st.spinner("⏳ First time setup: Downloading Heavy AI Model..."):
-                gdown.download(id=file_id, output=output, quiet=False)
-                os.makedirs(temp_extract_dir, exist_ok=True)
-                with zipfile.ZipFile(output, 'r') as zip_ref:
-                    zip_ref.extractall(temp_extract_dir)
-                os.remove(output)
-                found_model_path = None
-                for root, dirs, files in os.walk(temp_extract_dir):
-                    if 'config.json' in files:
-                        found_model_path = root
-                        break
-                os.makedirs(model_dir, exist_ok=True)
-                for item in os.listdir(found_model_path):
-                    shutil.move(os.path.join(found_model_path, item), os.path.join(model_dir, item))
-                shutil.rmtree(temp_extract_dir)
-        except Exception as e:
-            st.error(f"🚨 Download failed: {str(e)}")
-            st.stop()
+@st.cache_resource(show_spinner=False)
+def ensure_model_exists():
+    model_dir = "distilbert_resume_model"
+    config_path = os.path.join(model_dir, "config.json")
 
-download_model_if_missing()
+    if os.path.exists(config_path):
+        return model_dir
 
-@st.cache_resource
-def load_ai_model():
-    base_model_path = os.path.abspath('./distilbert_resume_model')
-    le = joblib.load('label_encoder.pkl')
-    bert_analyzer = pipeline("text-classification", model=base_model_path, tokenizer=base_model_path)
-    return le, bert_analyzer
+    if os.path.exists(model_dir):
+        shutil.rmtree(model_dir)
 
-le, bert_analyzer = load_ai_model()
+    zip_path = "resume_model.zip"
+    extract_dir = "temp_model"
+    file_id = "1cjxek02nIA36_8lmC-B66HwYjPR6wsyS"
+
+    try:
+        with st.spinner("Downloading AI model..."):
+            gdown.download(id=file_id, output=zip_path, quiet=True)
+
+            with zipfile.ZipFile(zip_path, "r") as zip_ref:
+                zip_ref.extractall(extract_dir)
+
+            found_path = None
+
+            for root, _, files in os.walk(extract_dir):
+                if "config.json" in files:
+                    found_path = root
+                    break
+
+            if not found_path:
+                st.error("Model extraction failed")
+                st.stop()
+
+            os.makedirs(model_dir, exist_ok=True)
+
+            for item in os.listdir(found_path):
+                shutil.move(
+                    os.path.join(found_path, item),
+                    os.path.join(model_dir, item)
+                )
+
+            shutil.rmtree(extract_dir)
+
+            if os.path.exists(zip_path):
+                os.remove(zip_path)
+
+    except Exception as e:
+        st.error(f"Failed to initialize model: {e}")
+        st.stop()
+
+    return model_dir
+
+
+@st.cache_resource(show_spinner=False)
+def load_models():
+    model_path = ensure_model_exists()
+
+    try:
+        label_encoder = joblib.load("label_encoder.pkl")
+    except:
+        st.error("label_encoder.pkl file missing")
+        st.stop()
+
+    try:
+        classifier = pipeline(
+            "text-classification",
+            model=model_path,
+            tokenizer=model_path
+        )
+    except Exception as e:
+        st.error(f"Unable to load AI model: {e}")
+        st.stop()
+
+    return label_encoder, classifier
+
+
+label_encoder, classifier = load_models()
+
 
 def clean_text(text):
-    text = re.sub(r'http[s]?://\S+', ' ', text)
+    text = re.sub(r'http\S+', ' ', text)
     text = re.sub(r'www\.\S+', ' ', text)
-    text = re.sub(r'[\r\n\t]', ' ', text)
-    text = re.sub(r'[^\w\s\.\@\-\+]', ' ', text)
+    text = re.sub(r'[^\w\s@.+-]', ' ', text)
     text = re.sub(r'\s+', ' ', text)
     return text.lower().strip()
 
-def extract_phone(text):
-    patterns = [
-        r'(?:\+91|91|0)?[\s\-]?\d{5}[\s\-]?\d{5}',
-        r'\+?\d{1,3}[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{4}',
-        r'\b\d{10}\b',
-        r'\b\d{3}[\s\-]\d{3}[\s\-]\d{4}\b'
-    ]
-    for p in patterns:
-        matches = re.findall(p, text)
-        if matches:
-            for m in matches:
-                clean_m = re.sub(r'[\s\-\(\)]', '', m)
-                if 10 <= len(clean_m) <= 13: return m.strip()
-    return "Not Found"
+
 
 def extract_email(text):
-    email_pattern = r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,7}\b'
-    emails = re.findall(email_pattern, text)
+    emails = re.findall(r'[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+', text)
     return emails[0] if emails else "Not Found"
+
+
+
+def extract_phone(text):
+    pattern = r'(?:\+91[-\s]?)?[6-9]\d{9}'
+    phones = re.findall(pattern, text)
+
+    if phones:
+        number = re.sub(r'\D', '', phones[0])
+
+        if len(number) == 10:
+            return f'+91 {number}'
+
+        return f'+{number}'
+
+    return "Not Found"
+
+
 
 def extract_name(text):
     lines = [line.strip() for line in text.split('\n') if line.strip()]
-    for line in lines[:15]:
-        match = re.search(r'(?i)\b(?:name|candidate|applicant|first name)\s*[:\-]\s*([A-Za-z\s]+)', line)
-        if match: return match.group(1).title().strip()
-    ignore = ['resume', 'cv', 'curriculum', 'vitae', 'profile', 'email', 'phone', 'address', 'mobile', 'dob', 'date', 'page', 'linkedin', 'github', 'summary', 'objective']
-    for line in lines[:10]:
-        if len(line.split()) > 4 or len(line) > 30: continue
-        if any(w in line.lower() for w in ignore): continue
-        if re.search(r'\d', line): continue
-        if '@' in line or '.com' in line: continue
-        words = line.split()
-        if 1 < len(words) <= 3: return line.title()
-    for line in lines[:5]:
-        words = line.split()
-        if 1 < len(words) <= 3 and not re.search(r'\d', line) and not '@' in line: return line.title()
+
+    blacklist = [
+        'resume', 'curriculum', 'vitae', 'developer', 'engineer',
+        'email', 'phone', 'linkedin', 'github', 'profile'
+    ]
+
+    for line in lines[:12]:
+        line_clean = line.lower()
+
+        if any(word in line_clean for word in blacklist):
+            continue
+
+        if len(line.split()) <= 4 and not re.search(r'\d', line):
+            return line.title()
+
     return "Unknown Candidate"
 
+
+
 def extract_experience(text):
-    exp_pattern = r'(?i)\b([0-9]{1,2}(?:\.[0-9]{1,2})?)\s*(?:\+)?\s*(?:years?|yrs?|months?)\s*(?:of)?\s*(?:experience|exp)?\b'
-    matches = re.findall(exp_pattern, text)
-    if matches:
-        max_exp = max([float(m) for m in matches])
-        return f"{max_exp} Years" if max_exp > 1 else "Fresher (< 1 Year)"
-    return "Fresher / Not Specified"
+    text = text.lower()
 
-def extract_skills(text):
-    tech_skills = ['python', 'java', 'c++', 'react', 'node.js', 'sql', 'aws', 'docker', 'kubernetes', 'machine learning', 'nlp', 'html', 'css', 'javascript', 'django', 'flask', 'fastapi', 'git', 'excel', 'powerbi']
-    found = [s for s in tech_skills if re.search(r'\b' + re.escape(s) + r'\b', text.lower())]
-    return ", ".join(found).title() if found else "Not Explicitly Listed"
+    patterns = [
+        r'(\d+(?:\.\d+)?)\+?\s*(?:years|year|yrs|yr)',
+        r'(\d+(?:\.\d+)?)\+?\s*(?:months|month)'
+    ]
 
-def process_pdf(uploaded_file):
-    doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
-    raw_text = ""
-    for page in doc: raw_text += page.get_text("text")
-    email = extract_email(raw_text)
-    phone = extract_phone(raw_text)
-    name = extract_name(raw_text)
-    exp = extract_experience(raw_text)
-    skills = extract_skills(raw_text)
-    return raw_text, email, phone, name, exp, skills
+    values = []
 
-def get_match_score(jd, resume):
-    if not jd or not resume: return 0
-    vectors = TfidfVectorizer(stop_words='english').fit_transform([jd, resume])
-    score = cosine_similarity(vectors)[0][1] * 100
-    return round(score, 2)
+    for pattern in patterns:
+        matches = re.findall(pattern, text)
 
-st.markdown("<div class='main-header'>AI-Powered Resume Analyzer</div>", unsafe_allow_html=True)
-st.markdown("<div class='sub-header'>Next-Gen Deep Learning Categorization & Suitability Ranking Engine</div>", unsafe_allow_html=True)
+        for match in matches:
+            try:
+                values.append(float(match))
+            except:
+                pass
+
+    if not values:
+        return "Fresher"
+
+    highest = max(values)
+
+    if highest < 1:
+        return "Fresher"
+
+    return f"{highest:.1f} Years"
+
+
+
+def calculate_match_score(jd, resume):
+    if not jd.strip() or not resume.strip():
+        return 0
+
+    try:
+        vectorizer = TfidfVectorizer(stop_words='english')
+        vectors = vectorizer.fit_transform([jd, resume])
+        similarity = cosine_similarity(vectors)[0][1]
+        return round(float(similarity * 100), 2)
+    except:
+        return 0
+
+
+
+def read_pdf(file):
+    text = ""
+
+    try:
+        pdf = fitz.open(stream=file.read(), filetype="pdf")
+
+        for page in pdf:
+            text += page.get_text()
+
+        pdf.close()
+
+    except:
+        return None
+
+    return text.strip()
+
+
+
+def analyze_resume(file, jd_text):
+    raw_text = read_pdf(file)
+
+    if not raw_text or len(raw_text.strip()) < 30:
+        return {
+            "File": file.name,
+            "Name": "Unreadable Resume",
+            "Email": "Not Found",
+            "Phone": "Not Found",
+            "Experience": "Unknown",
+            "Domain": "Invalid PDF",
+            "Score": 0,
+            "Preview": "Unable to extract text"
+        }
+
+    cleaned = clean_text(raw_text)
+
+    try:
+        prediction = classifier(cleaned[:4000], truncation=True, max_length=512)
+
+        label = prediction[0]["label"]
+
+        if "_" in label:
+            label_id = int(label.split("_")[-1])
+            category = label_encoder.inverse_transform([label_id])[0]
+        else:
+            category = label
+
+    except:
+        category = "Unknown"
+
+    score = calculate_match_score(clean_text(jd_text), cleaned)
+
+    return {
+        "File": file.name,
+        "Name": extract_name(raw_text),
+        "Email": extract_email(raw_text),
+        "Phone": extract_phone(raw_text),
+        "Experience": extract_experience(raw_text),
+        "Domain": category,
+        "Score": score,
+        "Preview": raw_text[:2500]
+    }
+
+
+st.markdown('<div class="main-title">AI Resume Analyzer Pro</div>', unsafe_allow_html=True)
+st.markdown('<div class="sub-title">Advanced Resume Ranking, Screening and AI-Based Candidate Matching</div>', unsafe_allow_html=True)
+
 
 with st.sidebar:
-    col1, col2 = st.columns([1, 4])
-    with col1:
-        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135692.png", width=45)
-    with col2:
-        st.markdown("<h3 style='margin-top: 5px; color: #00f2fe;'>Control Panel</h3>", unsafe_allow_html=True)
+    st.markdown("### Control Panel")
+
+    st.button(
+        "Toggle Theme",
+        on_click=toggle_theme,
+        use_container_width=True
+    )
+
     st.markdown("---")
-    st.button("🌓 Toggle Light/Dark Mode", on_click=toggle_theme, use_container_width=True)
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 🎯 1. Target Job Description")
-    jd_input = st.text_area("Paste JD here", height=200, placeholder="Paste required skills, tech stack, and role details here...", label_visibility="collapsed")
-    st.markdown("<br>", unsafe_allow_html=True)
-    st.markdown("#### 📂 2. Upload Talent Pool")
-    uploaded_files = st.file_uploader("Upload PDF files", type=["pdf"], accept_multiple_files=True, label_visibility="collapsed")
-    st.markdown("---")
-    st.markdown("#### 🛠️ AI System Diagnostics")
-    st.markdown("🟢 **NLP Engine:** DistilBERT Active")
-    st.markdown("🟢 **Heuristics:** 5-Tier Extraction On")
-    st.markdown("🟢 **Deduplication:** Armed & Ready")
 
-if uploaded_files:
-    candidates = []
-    progress_text = "🧠 Neural Network is actively parsing candidate vectors..."
-    my_bar = st.progress(0, text=progress_text)
-    for i, file in enumerate(uploaded_files):
-        raw_text, email, phone, name, experience, skills = process_pdf(file)
-        cleaned_text = clean_text(raw_text)
-        if len(cleaned_text) < 50:
-            category, score = "Invalid/Scanned PDF", 0
+    jd_input = st.text_area(
+        "Job Description",
+        height=240,
+        placeholder="Paste skills, requirements, role details and technologies here..."
+    )
+
+    uploaded_files = st.file_uploader(
+        "Upload Resume PDFs",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
+
+    analyze_button = st.button(
+        "Analyze Resumes",
+        use_container_width=True
+    )
+
+
+if analyze_button:
+    if not uploaded_files:
+        st.warning("Please upload at least one resume")
+    else:
+        progress = st.progress(0)
+        results = []
+
+        for index, file in enumerate(uploaded_files):
+            result = analyze_resume(file, jd_input)
+            results.append(result)
+            progress.progress((index + 1) / len(uploaded_files))
+
+        progress.empty()
+
+        df = pd.DataFrame(results)
+        df = df.sort_values(by="Score", ascending=False)
+
+        st.session_state.results = df
+        st.session_state.processed = True
+
+
+if st.session_state.processed and not st.session_state.results.empty:
+    df = st.session_state.results
+
+    duplicate_emails = df[
+        (df["Email"] != "Not Found") &
+        (df["Email"].duplicated(keep=False))
+    ]
+
+    duplicate_phones = df[
+        (df["Phone"] != "Not Found") &
+        (df["Phone"].duplicated(keep=False))
+    ]
+
+    duplicates = pd.concat([
+        duplicate_emails,
+        duplicate_phones
+    ]).drop_duplicates()
+
+    senior_candidates = df[
+        ~df["Experience"].str.contains("Fresher", case=False, na=False)
+    ]
+
+    freshers = df[
+        df["Experience"].str.contains("Fresher", case=False, na=False)
+    ]
+
+    top_score = int(df["Score"].max()) if not df.empty else 0
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    col1.metric("Total Resumes", len(df))
+    col2.metric("Top Match", f"{top_score}%")
+    col3.metric("Experienced", len(senior_candidates))
+    col4.metric("Duplicates", len(duplicates))
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    tabs = st.tabs([
+        "All Candidates",
+        "Top Matches",
+        "Freshers",
+        "Duplicates"
+    ])
+
+    def render_cards(dataframe):
+        if dataframe.empty:
+            st.info("No candidates found")
+            return
+
+        for _, row in dataframe.iterrows():
+            emoji = "🏆" if row['Score'] >= 75 else "👨‍💻"
+
+            with st.container():
+                st.markdown('<div class="resume-box">', unsafe_allow_html=True)
+
+                c1, c2 = st.columns([3, 1])
+
+                with c1:
+                    st.markdown(f"### {emoji} {row['Name']}")
+                    st.markdown(f"**Domain:** {row['Domain']}")
+                    st.markdown(f"**Experience:** {row['Experience']}")
+                    st.markdown(f"**Email:** {row['Email']}")
+                    st.markdown(f"**Phone:** {row['Phone']}")
+                    st.markdown(f"**Resume:** {row['File']}")
+
+                with c2:
+                    st.metric("Match Score", f"{row['Score']}%")
+                    st.progress(min(float(row['Score']) / 100, 1.0))
+
+                with st.expander("Resume Preview"):
+                    st.text(row['Preview'])
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    with tabs[0]:
+        render_cards(df)
+
+    with tabs[1]:
+        render_cards(df[df['Score'] >= 60])
+
+    with tabs[2]:
+        render_cards(freshers)
+
+    with tabs[3]:
+        if duplicates.empty:
+            st.success("No duplicate resumes detected")
         else:
-            prediction = bert_analyzer(cleaned_text, truncation=True, max_length=512)
-            label_id = int(prediction[0]['label'].split('_')[-1])
-            category = le.inverse_transform([label_id])[0]
-            score = get_match_score(clean_text(jd_input), cleaned_text) if jd_input else 0
-        candidates.append({
-            "File Name": file.name, "Name": name, "Domain": category,
-            "Exp": experience, "Skills": skills, "Score": score, 
-            "Email": email, "Phone": phone, "Raw": raw_text
-        })
-        my_bar.progress((i + 1) / len(uploaded_files), text=progress_text)
-    my_bar.empty()
-    df = pd.DataFrame(candidates).sort_values(by="Score", ascending=False)
-    
-    valid_emails = df[df['Email'] != 'Not Found']
-    valid_phones = df[df['Phone'] != 'Not Found']
-    dupes = pd.concat([
-        valid_emails[valid_emails.duplicated(subset=['Email'], keep=False)],
-        valid_phones[valid_phones.duplicated(subset=['Phone'], keep=False)]
-    ]).drop_duplicates(subset=['File Name'])
+            render_cards(duplicates)
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("📄 Resumes Processed", len(df))
-    c2.metric("🎯 Highest Suitability", f"{df['Score'].max()}%" if not df.empty else "0%")
-    c3.metric("💼 Senior Profiles (>3 Yrs)", len(df[df['Exp'].str.contains(r'[3-9]|[1-9][0-9]', na=False)]))
-    c4.metric("⚠️ Duplicates Blocked", len(dupes))
-    
-    st.markdown("<br>", unsafe_allow_html=True)
+    csv = df.drop(columns=["Preview"]).to_csv(index=False).encode('utf-8')
 
-    def render_candidate_card(row, index, tab_key):
-        with st.expander(f"{'🏆' if row['Score'] > 75 else '👤'} {row['Name']} | 🎯 Match: {row['Score']}% | 💼 {row['Domain']}"):
-            rc1, rc2, rc3 = st.columns([1, 1, 1])
-            rc1.markdown(f"**📧 Email:** `{row['Email']}`\n\n**📞 Phone:** `{row['Phone']}`")
-            rc2.markdown(f"**⏳ Experience:** `{row['Exp']}`\n\n**⚡ Key Skills:** `{row['Skills']}`")
-            rc3.progress(row['Score']/100, text=f"Algorithm Suitability: {row['Score']}%")
-            st.markdown("---")
-            st.text_area("Parsed Raw Vector Data", row['Raw'][:1000] + "...", height=150, key=f"txt_{tab_key}_{index}")
+    st.download_button(
+        "Download Analysis Report",
+        data=csv,
+        file_name="resume_analysis_report.csv",
+        mime="text/csv",
+        use_container_width=True
+    )
 
-    t1, t2, t3, t4 = st.tabs(["📊 Ranked Talent Pool", "👨‍💻 Experienced Leads", "🌱 Entry Level / Freshers", "🚨 Deduplication Alerts"])
-
-    with t1:
-        for i, row in df.iterrows(): render_candidate_card(row, i, "t1")
-    with t2:
-        exp_df = df[~df['Exp'].str.contains("Fresher", case=False, na=False)]
-        if exp_df.empty: st.info("No experienced candidates found in this batch.")
-        for i, row in exp_df.iterrows(): render_candidate_card(row, i, "t2")
-    with t3:
-        fresh_df = df[df['Exp'].str.contains("Fresher", case=False, na=False)]
-        if fresh_df.empty: st.info("No freshers found in this batch.")
-        for i, row in fresh_df.iterrows(): render_candidate_card(row, i, "t3")
-    with t4:
-        if dupes.empty: 
-            st.success("✅ Database Integrity Verified! No redundant applications found.")
-        else:
-            st.warning("⚠️ Alert: The system has quarantined the following redundant applications.")
-            for i, row in dupes.iterrows(): render_candidate_card(row, i, "t4")
 else:
-    st.info("👈 System is idling. Please upload candidate vectors (PDFs) from the Control Panel to begin processing.")
+    st.markdown(
+        """
+        <div class="card">
+            <h3>Features</h3>
+            <ul>
+                <li>AI-based resume classification</li>
+                <li>Automatic email and phone extraction</li>
+                <li>Duplicate resume detection</li>
+                <li>JD similarity matching</li>
+                <li>Modern responsive UI</li>
+                <li>Exportable candidate report</li>
+            </ul>
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+```
