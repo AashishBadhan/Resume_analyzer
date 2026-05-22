@@ -13,14 +13,12 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(page_title="AI Smart ATS | Premium", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
-# Theme Setup
 if 'theme' not in st.session_state:
     st.session_state.theme = 'Dark'
 
 def toggle_theme():
     st.session_state.theme = 'Light' if st.session_state.theme == 'Dark' else 'Dark'
 
-# Base CSS (Without <style> tags)
 base_css = """
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
@@ -166,12 +164,27 @@ st.markdown("<div class='main-header'>AI-Powered Resume Analyzer</div>", unsafe_
 st.markdown("<div class='sub-header'>Next-Gen Deep Learning Resume Categorization & Ranking Engine</div>", unsafe_allow_html=True)
 
 with st.sidebar:
-    st.button("🌓 Toggle Light/Dark Mode", on_click=toggle_theme)
-    st.image("https://cdn-icons-png.flaticon.com/512/3135/3135692.png", width=80)
-    st.markdown("### ⚙️ Recruitment Control Panel")
-    jd_input = st.text_area("🎯 Job Description (JD)", height=250, placeholder="Paste required skills, tech stack, and role details here...")
+    col1, col2 = st.columns([1, 4])
+    with col1:
+        st.image("https://cdn-icons-png.flaticon.com/512/3135/3135692.png", width=45)
+    with col2:
+        st.markdown("<h3 style='margin-top: 5px; color: #4facfe;'>Control Panel</h3>", unsafe_allow_html=True)
     st.markdown("---")
-    uploaded_files = st.file_uploader("📂 Upload Resumes (PDFs)", type=["pdf"], accept_multiple_files=True)
+    st.button("🌓 Switch Light/Dark Mode", on_click=toggle_theme, use_container_width=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 🎯 1. Job Description (JD)")
+    jd_input = st.text_area("Paste JD here", height=220, placeholder="Paste required skills, tech stack, and role details here...", label_visibility="collapsed")
+    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("#### 📂 2. Upload Resumes")
+    uploaded_files = st.file_uploader("Upload PDF files", type=["pdf"], accept_multiple_files=True, label_visibility="collapsed")
+    st.markdown("---")
+    st.markdown("#### 🛠️ System Status")
+    st.markdown("🟢 **AI Engine:** DistilBERT Ready")
+    st.markdown("🟢 **Database:** Duplicate Tracking On")
+    st.markdown("🟢 **Status:** Awaiting Candidates")
+    st.markdown("<br>", unsafe_allow_html=True)
+    with st.expander("ℹ️ Quick Help Guide"):
+        st.markdown("1. Paste the target **Job Description**.\n2. Upload single/multiple **Resume PDFs**.\n3. The AI will automatically extract data, predict the job domain, and generate a **Match Score**.")
 
 if uploaded_files:
     candidates = []
