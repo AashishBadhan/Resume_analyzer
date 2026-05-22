@@ -13,14 +13,15 @@ from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(page_title="AI Smart ATS | Premium", page_icon="🤖", layout="wide", initial_sidebar_state="expanded")
 
+# Theme Setup
 if 'theme' not in st.session_state:
     st.session_state.theme = 'Dark'
 
 def toggle_theme():
     st.session_state.theme = 'Light' if st.session_state.theme == 'Dark' else 'Dark'
 
+# Base CSS (Without <style> tags)
 base_css = """
-<style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
 html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 #MainMenu {visibility: hidden;} footer {visibility: hidden;} header {background-color: transparent !important;}
@@ -32,12 +33,10 @@ html, body, [class*="css"] {font-family: 'Inter', sans-serif;}
 [data-testid="stMetricLabel"] {font-size: 14px !important; font-weight: 600 !important;}
 div[data-testid="metric-container"] {border-radius: 12px; padding: 20px; text-align: center; transition: all 0.3s ease;}
 .streamlit-expanderHeader {font-size: 16px; font-weight: 700; border-radius: 8px; transition: all 0.3s ease;}
-</style>
 """
 
 if st.session_state.theme == 'Dark':
     theme_css = """
-    <style>
     .stApp {background-color: #0e1117; color: #fafafa;}
     .sub-header {color: #aaa;}
     [data-testid="stSidebar"] {background-color: #262730; border-right: 1px solid #333;}
@@ -46,11 +45,9 @@ if st.session_state.theme == 'Dark':
     [data-testid="stMetricLabel"] {color: #aaa !important;}
     .streamlit-expanderHeader {color: #4facfe; background-color: #1e1e1e;}
     .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #1e1e1e 100%); color: white;}
-    </style>
     """
 else:
     theme_css = """
-    <style>
     .stApp {background-color: #ffffff; color: #111111;}
     .sub-header {color: #666;}
     [data-testid="stSidebar"] {background-color: #f8f9fa; border-right: 1px solid #e0e0e0;}
@@ -59,10 +56,9 @@ else:
     [data-testid="stMetricLabel"] {color: #555 !important;}
     .streamlit-expanderHeader {color: #1e3c72; background-color: #f1f5f9;}
     .stButton>button {background: linear-gradient(90deg, #1e3c72 0%, #2a5298 100%); color: white;}
-    </style>
     """
 
-st.markdown(base_css + theme_css, unsafe_allow_html=True)
+st.markdown(f"<style>{base_css}{theme_css}</style>", unsafe_allow_html=True)
 
 @st.cache_resource
 def download_model_if_missing():
