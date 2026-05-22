@@ -437,7 +437,7 @@ def analyze_resume(file, jd_text):
     }
 
 
-st.markdown('<div class="main-title">AI Resume Analyzer Pro</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-title">AI Resume Analyzer</div>', unsafe_allow_html=True)
 st.markdown('<div class="sub-title">Advanced Resume Ranking, Screening and AI-Based Candidate Matching</div>', unsafe_allow_html=True)
 
 
@@ -466,7 +466,6 @@ with st.sidebar:
     jd_input = st.text_area(
         "Job Description",
         height=240,
-        placeholder="Paste skills, requirements, role details and technologies here..."
     )
 
     uploaded_files = st.file_uploader(
