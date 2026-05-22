@@ -11,12 +11,14 @@ from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
+
 st.set_page_config(
     page_title="AI Resume Analyzer",
     page_icon="🚀",
     layout="wide",
     initial_sidebar_state="expanded"
 )
+
 
 if "theme" not in st.session_state:
     st.session_state.theme = "dark"
@@ -29,8 +31,11 @@ if "results" not in st.session_state:
 
 
 def toggle_theme():
+
     st.session_state.theme = (
-        "light" if st.session_state.theme == "dark" else "dark"
+        "light"
+        if st.session_state.theme == "dark"
+        else "dark"
     )
 
 
@@ -39,108 +44,110 @@ base_css = """
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
-html, body, [class*="css"] {
-    font-family: 'Inter', sans-serif;
+html, body, [class*="css"]{
+    font-family:'Inter',sans-serif;
 }
 
-#MainMenu, footer, header {
-    visibility: hidden;
+#MainMenu,
+footer,
+header{
+    visibility:hidden;
 }
 
-.stApp {
-    overflow-x: hidden;
+.stApp{
+    overflow-x:hidden;
 }
 
-.block-container {
-    padding-top: 1rem;
-    padding-bottom: 2rem;
+.block-container{
+    padding-top:1rem;
+    padding-bottom:2rem;
 }
 
-section[data-testid="stSidebar"] {
-    min-width: 330px !important;
-    max-width: 330px !important;
+section[data-testid="stSidebar"]{
+    min-width:330px !important;
+    max-width:330px !important;
 }
 
-section[data-testid="stSidebar"] .block-container {
-    padding-top: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+section[data-testid="stSidebar"] .block-container{
+    padding-top:1rem;
+    padding-left:1rem;
+    padding-right:1rem;
 }
 
-.main-title {
-    font-size: 3.4rem;
-    font-weight: 800;
-    text-align: center;
-    margin-bottom: 0.4rem;
-    letter-spacing: -2px;
+.main-title{
+    font-size:3.5rem;
+    font-weight:800;
+    text-align:center;
+    margin-bottom:0.3rem;
+    letter-spacing:-2px;
 }
 
-.sub-title {
-    text-align: center;
-    font-size: 1rem;
-    margin-bottom: 2rem;
+.sub-title{
+    text-align:center;
+    font-size:1rem;
+    margin-bottom:2rem;
 }
 
-.card {
-    padding: 1.3rem;
-    border-radius: 24px;
-    margin-bottom: 1rem;
+.card{
+    padding:1.4rem;
+    border-radius:24px;
+    margin-bottom:1rem;
 }
 
-.stButton > button {
-    width: 100%;
-    border-radius: 16px;
-    padding: 0.85rem 1rem;
-    border: none;
-    font-weight: 700;
-    transition: 0.3s ease;
+.stButton > button{
+    width:100%;
+    border-radius:16px;
+    padding:0.9rem 1rem;
+    border:none;
+    font-weight:700;
+    transition:0.3s ease;
 }
 
-.stButton > button:hover {
-    transform: translateY(-2px);
+.stButton > button:hover{
+    transform:translateY(-2px);
 }
 
-div[data-testid="metric-container"] {
-    border-radius: 24px;
-    padding: 1rem;
+div[data-testid="metric-container"]{
+    border-radius:24px;
+    padding:1rem;
 }
 
-.resume-box {
-    border-radius: 24px;
-    padding: 20px;
-    margin-bottom: 18px;
-    transition: 0.3s ease;
+.resume-box{
+    border-radius:24px;
+    padding:20px;
+    margin-bottom:18px;
+    transition:0.3s ease;
 }
 
-.resume-box:hover {
-    transform: translateY(-4px);
+.resume-box:hover{
+    transform:translateY(-4px);
 }
 
-.stTabs [data-baseweb="tab-list"] {
-    gap: 10px;
+.stTabs [data-baseweb="tab-list"]{
+    gap:10px;
 }
 
-.stTabs [data-baseweb="tab"] {
-    border-radius: 12px;
-    padding: 12px 18px;
-    font-weight: 600;
+.stTabs [data-baseweb="tab"]{
+    border-radius:12px;
+    padding:12px 18px;
+    font-weight:600;
 }
 
-.stProgress > div > div > div > div {
-    border-radius: 20px;
+.stProgress > div > div > div > div{
+    border-radius:20px;
 }
 
-::-webkit-scrollbar {
-    width: 8px;
+::-webkit-scrollbar{
+    width:8px;
 }
 
-::-webkit-scrollbar-thumb {
-    background: linear-gradient(#22d3ee,#06b6d4);
-    border-radius: 20px;
+::-webkit-scrollbar-thumb{
+    background:linear-gradient(#22d3ee,#06b6d4);
+    border-radius:20px;
 }
 
-::-webkit-scrollbar-track {
-    background: #020617;
+::-webkit-scrollbar-track{
+    background:#020617;
 }
 
 </style>
@@ -150,87 +157,116 @@ div[data-testid="metric-container"] {
 dark_css = """
 <style>
 
-.stApp {
-    background: radial-gradient(circle at top,#07111f 0%,#040816 45%,#02040d 100%);
-    color: #ffffff;
+.stApp{
+    background:#050816;
+    color:#ffffff;
 }
 
-.main-title {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4,#67e8f9);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    text-shadow: 0 0 25px rgba(34,211,238,0.35);
+.main-title{
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #38bdf8
+    );
+
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
+
+    text-shadow:0 0 20px rgba(34,211,238,0.25);
 }
 
-.sub-title {
-    color: #94a3b8;
+.sub-title{
+    color:#cbd5e1;
+}
+
+section[data-testid="stSidebar"]{
+
+    background:#0b1220 !important;
+
+    border-right:1px solid rgba(34,211,238,0.15);
+}
+
+section[data-testid="stSidebar"] *{
+    color:white !important;
 }
 
 .card,
 .resume-box,
 div[data-testid="metric-container"],
-.stTabs [data-baseweb="tab"] {
-    background: linear-gradient(
-        145deg,
-        rgba(8,15,30,0.96),
-        rgba(12,24,45,0.96)
+.stTabs [data-baseweb="tab"]{
+
+    background:#0f172a;
+
+    border:1px solid rgba(34,211,238,0.10);
+
+    box-shadow:
+        0 0 18px rgba(34,211,238,0.06);
+
+    backdrop-filter:blur(10px);
+}
+
+.resume-box:hover{
+
+    border:1px solid rgba(34,211,238,0.30);
+
+    box-shadow:
+        0 0 25px rgba(34,211,238,0.12);
+}
+
+.stButton > button{
+
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #06b6d4
     );
 
-    border: 1px solid rgba(34,211,238,0.12);
+    color:#041018 !important;
 
-    box-shadow:
-        0 0 20px rgba(34,211,238,0.08),
-        inset 0 0 10px rgba(34,211,238,0.03);
-
-    backdrop-filter: blur(10px);
+    font-weight:700;
 }
 
-.resume-box:hover {
-    border: 1px solid rgba(34,211,238,0.35);
+.stButton > button:hover{
 
-    box-shadow:
-        0 0 30px rgba(34,211,238,0.15),
-        inset 0 0 10px rgba(34,211,238,0.04);
-}
-
-.stButton > button {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4);
-    color: #041018;
-    box-shadow: 0 0 20px rgba(34,211,238,0.30);
-}
-
-.stButton > button:hover {
-    background: linear-gradient(90deg,#67e8f9,#22d3ee);
-    box-shadow: 0 0 28px rgba(34,211,238,0.55);
+    background:linear-gradient(
+        90deg,
+        #67e8f9,
+        #22d3ee
+    );
 }
 
 .stTextArea textarea,
-.stTextInput input {
-    background: rgba(8,15,30,0.95) !important;
-    color: white !important;
-    border: 1px solid rgba(34,211,238,0.15) !important;
-    border-radius: 14px !important;
+.stTextInput input{
+
+    background:#111827 !important;
+
+    color:white !important;
+
+    border:1px solid rgba(34,211,238,0.18) !important;
+
+    border-radius:14px !important;
 }
 
-section[data-testid="stSidebar"] {
-    background: linear-gradient(
-        180deg,
-        #020617 0%,
-        #071226 45%,
-        #020617 100%
+.stTabs [aria-selected="true"]{
+
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #06b6d4
+    ) !important;
+
+    color:#041018 !important;
+
+    font-weight:700;
+}
+
+.stProgress > div > div > div > div{
+
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #06b6d4
     );
-
-    border-right: 1px solid rgba(34,211,238,0.12);
-}
-
-.stTabs [aria-selected="true"] {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4) !important;
-    color: #041018 !important;
-    font-weight: 700;
-}
-
-.stProgress > div > div > div > div {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4);
 }
 
 </style>
@@ -240,49 +276,66 @@ section[data-testid="stSidebar"] {
 light_css = """
 <style>
 
-.stApp {
-    background: #ecfeff;
-    color: #082f49;
+.stApp{
+    background:#f8fafc;
+    color:#0f172a;
 }
 
-.main-title {
-    background: linear-gradient(90deg,#0891b2,#06b6d4,#22d3ee);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
+.main-title{
+
+    background:linear-gradient(
+        90deg,
+        #0891b2,
+        #06b6d4
+    );
+
+    -webkit-background-clip:text;
+    -webkit-text-fill-color:transparent;
 }
 
 .card,
 .resume-box,
 div[data-testid="metric-container"],
-.stTabs [data-baseweb="tab"] {
+.stTabs [data-baseweb="tab"]{
 
-    background: rgba(255,255,255,0.95);
+    background:white;
 
-    border: 1px solid rgba(6,182,212,0.10);
+    border:1px solid rgba(6,182,212,0.10);
 
     box-shadow:
-        0 0 16px rgba(6,182,212,0.08);
-
-    backdrop-filter: blur(8px);
+        0 0 12px rgba(6,182,212,0.06);
 }
 
-.stButton > button {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4);
-    color: white;
+.stButton > button{
+
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #06b6d4
+    );
+
+    color:white;
 }
 
 .stTextArea textarea,
-.stTextInput input {
-    border-radius: 14px !important;
+.stTextInput input{
+    border-radius:14px !important;
 }
 
-.stTabs [aria-selected="true"] {
-    background: linear-gradient(90deg,#22d3ee,#06b6d4) !important;
-    color: white !important;
+.stTabs [aria-selected="true"]{
+
+    background:linear-gradient(
+        90deg,
+        #22d3ee,
+        #06b6d4
+    ) !important;
+
+    color:white !important;
 }
 
 </style>
 """
+
 
 st.markdown(base_css, unsafe_allow_html=True)
 
@@ -297,10 +350,13 @@ def ensure_model_exists():
 
     model_dir = "distilbert_resume_model"
 
-    if os.path.exists(os.path.join(model_dir, "config.json")):
+    if os.path.exists(
+        os.path.join(model_dir, "config.json")
+    ):
         return model_dir
 
     zip_path = "resume_model.zip"
+
     extract_dir = "temp_model"
 
     file_id = "1cjxek02nIA36_8lmC-B66HwYjPR6wsyS"
@@ -345,6 +401,7 @@ def ensure_model_exists():
                 os.remove(zip_path)
 
     except Exception as e:
+
         st.error(f"Model loading failed: {e}")
         st.stop()
 
@@ -357,9 +414,13 @@ def load_models():
     model_path = ensure_model_exists()
 
     try:
-        label_encoder = joblib.load("label_encoder.pkl")
+
+        label_encoder = joblib.load(
+            "label_encoder.pkl"
+        )
 
     except Exception:
+
         st.error("label_encoder.pkl missing")
         st.stop()
 
@@ -372,6 +433,7 @@ def load_models():
         )
 
     except Exception as e:
+
         st.error(f"Pipeline error: {e}")
         st.stop()
 
@@ -383,10 +445,10 @@ label_encoder, classifier = load_models()
 
 def clean_text(text):
 
-    text = re.sub(r"http\\S+", " ", text)
-    text = re.sub(r"www\\.\\S+", " ", text)
-    text = re.sub(r"[^\\w\\s@.+-]", " ", text)
-    text = re.sub(r"\\s+", " ", text)
+    text = re.sub(r"http\S+", " ", text)
+    text = re.sub(r"www\.\S+", " ", text)
+    text = re.sub(r"[^\w\s@.+-]", " ", text)
+    text = re.sub(r"\s+", " ", text)
 
     return text.lower().strip()
 
@@ -394,7 +456,7 @@ def clean_text(text):
 def extract_email(text):
 
     emails = re.findall(
-        r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+",
+        r"[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+",
         text
     )
 
@@ -403,13 +465,13 @@ def extract_email(text):
 
 def extract_phone(text):
 
-    pattern = r"(?:\\+91[-\\s]?)?[6-9]\\d{9}"
+    pattern = r"(?:\+91[-\s]?)?[6-9]\d{9}"
 
     phones = re.findall(pattern, text)
 
     if phones:
 
-        number = re.sub(r"\\D", "", phones[0])
+        number = re.sub(r"\D", "", phones[0])
 
         if len(number) == 10:
             return f"+91 {number}"
@@ -421,7 +483,7 @@ def extract_name(text):
 
     lines = [
         line.strip()
-        for line in text.split("\\n")
+        for line in text.split("\n")
         if line.strip()
     ]
 
@@ -444,7 +506,7 @@ def extract_name(text):
         if any(word in lower for word in blacklist):
             continue
 
-        if len(line.split()) <= 4 and not re.search(r"\\d", line):
+        if len(line.split()) <= 4 and not re.search(r"\d", line):
             return line.title()
 
     return "Unknown Candidate"
@@ -455,7 +517,7 @@ def extract_experience(text):
     text = text.lower()
 
     matches = re.findall(
-        r"(\\d+(?:\\.\\d+)?)\\+?\\s*(?:years|year|yrs|yr)",
+        r"(\d+(?:\.\d+)?)\+?\s*(?:years|year|yrs|yr)",
         text
     )
 
@@ -545,7 +607,9 @@ def analyze_resume(file, jd_text):
 
         if "_" in label:
 
-            label_id = int(label.split("_")[-1])
+            label_id = int(
+                label.split("_")[-1]
+            )
 
             category = label_encoder.inverse_transform(
                 [label_id]
@@ -575,7 +639,7 @@ def analyze_resume(file, jd_text):
 
 
 st.markdown(
-    '<div class="main-title">Messy Data AI Resume Analyzer</div>',
+    '<div class="main-title">AI Resume Analyzer</div>',
     unsafe_allow_html=True
 )
 
@@ -599,8 +663,7 @@ with st.sidebar:
 
     jd_input = st.text_area(
         "📄 Job Description",
-        height=220,
-        placeholder="Paste job requirements, skills and technologies..."
+        height=220
     )
 
     uploaded_files = st.file_uploader(
@@ -610,7 +673,10 @@ with st.sidebar:
     )
 
     if uploaded_files:
-        st.success(f"{len(uploaded_files)} Resume(s) Uploaded")
+
+        st.success(
+            f"{len(uploaded_files)} Resume(s) Uploaded"
+        )
 
     st.markdown("---")
 
@@ -658,16 +724,27 @@ if analyze_button:
         st.session_state.processed = True
 
 
-if st.session_state.processed and not st.session_state.results.empty:
+if (
+    st.session_state.processed
+    and
+    not st.session_state.results.empty
+):
 
     df = st.session_state.results
 
     top_score = int(df["Score"].max())
 
-    avg_score = round(df["Score"].mean(), 1)
+    avg_score = round(
+        df["Score"].mean(),
+        1
+    )
 
     duplicate_count = len(
-        df[df["Email"].duplicated(keep=False)]
+        df[
+            df["Email"].duplicated(
+                keep=False
+            )
+        ]
     )
 
     col1, col2, col3, col4 = st.columns(4)
@@ -776,11 +853,15 @@ if st.session_state.processed and not st.session_state.results.empty:
         render_cards(df)
 
     with tabs[1]:
+
         render_cards(
-            df[df["Score"] >= 60]
+            df[
+                df["Score"] >= 60
+            ]
         )
 
     with tabs[2]:
+
         render_cards(
             df[
                 df["Experience"].str.contains(
@@ -808,11 +889,12 @@ else:
     st.markdown(
         """
         <div class="card">
+
             <h2>🚀 Features</h2>
 
-            <ul>
+            <ul style="line-height:2;">
                 <li>AI Resume Classification</li>
-                <li>Modern Neon Dashboard UI</li>
+                <li>Modern Dashboard UI</li>
                 <li>JD Similarity Matching</li>
                 <li>Resume Ranking</li>
                 <li>Duplicate Detection</li>
