@@ -11,9 +11,6 @@ from transformers import pipeline
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 
-# ==========================================
-# 1. PREMIUM GUI CONFIG & CSS
-# ==========================================
 st.set_page_config(
     page_title="AI Smart ATS | Premium", 
     page_icon="🤖", 
@@ -65,9 +62,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. MODEL DOWNLOAD & CACHING
-# ==========================================
 @st.cache_resource
 def download_model_if_missing():
     model_dir = os.path.abspath('./distilbert_resume_model')
@@ -112,9 +106,6 @@ def load_ai_model():
 
 le, bert_analyzer = load_ai_model()
 
-# ==========================================
-# 3. HEAVY NLP & EXTRACTION LOGICS (100+ Combinations handled)
-# ==========================================
 def clean_text(text):
     text = re.sub(r'http[s]?://\S+', ' ', text) # URLs
     text = re.sub(r'www\.\S+', ' ', text)
@@ -126,10 +117,10 @@ def clean_text(text):
 def extract_phone(text):
     # Extremely robust regex for Indian (+91, 0, spaces, dashes) and International numbers
     phone_pattern = re.compile(r'''
-        (?:(?:\+|0{0,2})91[\s\-]?)?       # Optional +91 or 091 with space/dash
-        (?:(?:\d{5}[\s\-]?\d{5})|         # Format: 98765 43210
-           (?:\d{3}[\s\-]?\d{3}[\s\-]?\d{4})| # Format: 987-654-3210
-           (?:\d{10}))                    # Format: 9876543210
+        (?:(?:\+|0{0,2})91[\s\-]?)?       
+        (?:(?:\d{5}[\s\-]?\d{5})|         
+           (?:\d{3}[\s\-]?\d{3}[\s\-]?\d{4})| 
+           (?:\d{10}))                    
     ''', re.VERBOSE)
     
     matches = phone_pattern.findall(text)
@@ -196,10 +187,7 @@ def get_match_score(jd, resume):
     score = cosine_similarity(vectors)[0][1] * 100
     return round(score, 2)
 
-# ==========================================
-# 4. DASHBOARD RENDER
-# ==========================================
-st.markdown("<div class='main-header'>AI-Powered Smart ATS</div>", unsafe_allow_html=True)
+st.markdown("<div class='main-header'>AI-Powered Resume Analyzer</div>", unsafe_allow_html=True)
 st.markdown("<div class='sub-header'>Next-Gen Deep Learning Resume Categorization & Ranking Engine</div>", unsafe_allow_html=True)
 
 with st.sidebar:
