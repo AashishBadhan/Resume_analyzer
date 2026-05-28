@@ -47,8 +47,19 @@ base_css = """
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
-#MainMenu, footer, header {
+/* Hide menu/footer only. Do NOT hide header, because Streamlit uses header for sidebar reopen button. */
+#MainMenu, footer {
     visibility: hidden;
+}
+header, header[data-testid="stHeader"] {
+    visibility: visible !important;
+    background: transparent !important;
+}
+header [data-testid="stToolbar"] {
+    visibility: hidden;
+}
+button[kind="header"] {
+    visibility: visible !important;
 }
 .stApp {
     overflow-x: hidden;
