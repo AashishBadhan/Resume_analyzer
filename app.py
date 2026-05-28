@@ -53,35 +53,48 @@ html, body, [class*="css"] {
 .stApp {
     overflow-x: hidden;
 }
+
+/* Responsive main page layout */
 .block-container {
+    width: 100% !important;
+    max-width: 1280px !important;
+    margin: 0 auto !important;
     padding-top: 1rem;
     padding-bottom: 2rem;
+    padding-left: clamp(1rem, 3vw, 3rem) !important;
+    padding-right: clamp(1rem, 3vw, 3rem) !important;
 }
+
+/* Do not force fixed sidebar width. Fixed width causes alignment issues when sidebar is collapsed. */
 section[data-testid="stSidebar"] {
-    min-width: 330px !important;
-    max-width: 330px !important;
+    width: min(330px, 92vw) !important;
 }
 section[data-testid="stSidebar"] .block-container {
+    max-width: 100% !important;
     padding-top: 1rem;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
 }
+
 .main-title {
-    font-size: 3.5rem;
+    font-size: clamp(2rem, 6vw, 3.5rem);
     font-weight: 800;
     text-align: center;
     margin-bottom: 0.3rem;
-    letter-spacing: -2px;
+    letter-spacing: clamp(-1.5px, -0.2vw, -2px);
+    line-height: 1.1;
+    word-break: break-word;
 }
 .sub-title {
     text-align: center;
-    font-size: 1rem;
-    margin-bottom: 2rem;
+    font-size: clamp(0.9rem, 2.5vw, 1rem);
+    margin-bottom: clamp(1rem, 3vw, 2rem);
 }
 .card {
-    padding: 1.4rem;
+    padding: clamp(1rem, 3vw, 1.4rem);
     border-radius: 24px;
     margin-bottom: 1rem;
+    overflow-wrap: anywhere;
 }
 .stButton > button {
     width: 100%;
@@ -90,19 +103,25 @@ section[data-testid="stSidebar"] .block-container {
     border: none;
     font-weight: 700;
     transition: 0.3s ease;
+    white-space: normal !important;
 }
 .stButton > button:hover {
     transform: translateY(-2px);
 }
 div[data-testid="metric-container"] {
     border-radius: 24px;
-    padding: 1rem;
+    padding: clamp(0.8rem, 2vw, 1rem);
+    min-height: 105px;
 }
 .resume-box {
+    width: 100%;
+    max-width: 100%;
     border-radius: 24px;
-    padding: 20px;
+    padding: clamp(14px, 3vw, 20px);
     margin-bottom: 18px;
     transition: 0.3s ease;
+    overflow: hidden;
+    overflow-wrap: anywhere;
 }
 .resume-box:hover {
     transform: translateY(-4px);
@@ -115,6 +134,7 @@ div[data-testid="metric-container"] {
     border-radius: 12px;
     padding: 12px 18px;
     font-weight: 600;
+    white-space: normal;
 }
 .stProgress > div > div > div > div {
     border-radius: 20px;
@@ -123,6 +143,56 @@ div[data-testid="metric-container"] {
     opacity: 0.8;
     font-size: 0.95rem;
 }
+
+/* Keep every component inside the visible width */
+.element-container, .stMarkdown, .stText, .stDataFrame, .stDownloadButton {
+    max-width: 100% !important;
+}
+img, svg, canvas, iframe {
+    max-width: 100% !important;
+}
+pre, code {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+}
+
+/* Responsive columns and cards for tablets/mobiles */
+@media (max-width: 900px) {
+    .block-container {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+    .main-title {
+        font-size: 2.4rem;
+        letter-spacing: -1px;
+    }
+    .resume-box:hover, .stButton > button:hover {
+        transform: none;
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 10px 12px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 640px) {
+    .main-title {
+        font-size: 2rem;
+    }
+    .sub-title {
+        font-size: 0.9rem;
+    }
+    div[data-testid="metric-container"] {
+        min-height: auto;
+    }
+    .resume-box h2, .resume-box h3 {
+        font-size: 1.2rem !important;
+    }
+    section[data-testid="stSidebar"] {
+        width: 92vw !important;
+    }
+}
+
 ::-webkit-scrollbar {
     width: 8px;
 }
