@@ -47,19 +47,14 @@ base_css = """
 html, body, [class*="css"] {
     font-family: 'Inter', sans-serif;
 }
-/* Hide menu/footer only. Do NOT hide header, because Streamlit uses header for sidebar reopen button. */
+/* Hide only Streamlit menu and footer.
+   IMPORTANT: Do NOT hide header/toolbar/buttons because Streamlit keeps
+   the sidebar open/reopen control there after the sidebar is collapsed. */
 #MainMenu, footer {
-    visibility: hidden;
+    display: none !important;
 }
-header, header[data-testid="stHeader"] {
-    visibility: visible !important;
+header[data-testid="stHeader"] {
     background: transparent !important;
-}
-header [data-testid="stToolbar"] {
-    visibility: hidden;
-}
-button[kind="header"] {
-    visibility: visible !important;
 }
 .stApp {
     overflow-x: hidden;
@@ -76,8 +71,8 @@ button[kind="header"] {
     padding-right: clamp(1rem, 3vw, 3rem) !important;
 }
 
-/* Do not force fixed sidebar width. Fixed width causes alignment issues when sidebar is collapsed. */
-section[data-testid="stSidebar"] {
+/* Responsive sidebar width without breaking Streamlit's collapsed/open button. */
+section[data-testid="stSidebar"][aria-expanded="true"] {
     width: min(330px, 92vw) !important;
 }
 section[data-testid="stSidebar"] .block-container {
@@ -199,7 +194,7 @@ pre, code {
     .resume-box h2, .resume-box h3 {
         font-size: 1.2rem !important;
     }
-    section[data-testid="stSidebar"] {
+    section[data-testid="stSidebar"][aria-expanded="true"] {
         width: 92vw !important;
     }
 }
@@ -718,7 +713,7 @@ if st.session_state.processed and not st.session_state.results.empty:
         render_cards(df)
 
     with tabs[1]:
-        render_cards(df[df["Score"] >= 60])
+        render_cards(df[df["Score"] >= 50])
 
     with tabs[2]:
         experienced_df = df[~df["Experience"].str.contains("Fresher|Unknown", case=False, na=False)]
