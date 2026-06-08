@@ -32,6 +32,9 @@ if "processed" not in st.session_state:
 if "results" not in st.session_state:
     st.session_state.results = pd.DataFrame()
 
+if "last_input_signature" not in st.session_state:
+    st.session_state.last_input_signature = None
+
 
 def toggle_theme():
     st.session_state.theme = "light" if st.session_state.theme == "dark" else "dark"
@@ -333,6 +336,16 @@ st.markdown(dark_css if st.session_state.theme == "dark" else light_css, unsafe_
 # -----------------------------
 # Model loading
 # -----------------------------
+def safe_extract_zip(zip_ref, extract_dir):
+    """Extract model zip safely and avoid accidental path traversal."""
+    extract_abs = os.path.abspath(extract_dir)
+    for member in zip_ref.infolist():
+        member_path = os.path.abspath(os.path.join(extract_dir, member.filename))
+        if not member_path.startswith(extract_abs + os.sep) and member_path != extract_abs:
+            raise ValueError("Unsafe file path found inside model zip.")
+    zip_ref.extractall(extract_dir)
+
+
 @st.cache_resource(show_spinner=False)
 def ensure_model_exists():
     model_dir = "distilbert_resume_model"
@@ -350,20 +363,22 @@ def ensure_model_exists():
             if os.path.exists(extract_dir):
                 shutil.rmtree(extract_dir)
 
-            gdown.download(id=file_id, output=zip_path, quiet=False)
+            download_result = gdown.download(id=file_id, output=zip_path, quiet=True)
 
-            if not os.path.exists(zip_path) or os.path.getsize(zip_path) == 0:
+            if download_result is None or not os.path.exists(zip_path) or os.path.getsize(zip_path) == 0:
                 st.error("Model download failed. Please check Google Drive file permissions.")
                 st.stop()
 
             with zipfile.ZipFile(zip_path, "r") as zip_ref:
-                zip_ref.extractall(extract_dir)
+                safe_extract_zip(zip_ref, extract_dir)
 
             found_path = None
+            encoder_found_path = None
             for root, _, files in os.walk(extract_dir):
-                if "config.json" in files:
+                if "config.json" in files and found_path is None:
                     found_path = root
-                    break
+                if "label_encoder.pkl" in files and encoder_found_path is None:
+                    encoder_found_path = os.path.join(root, "label_encoder.pkl")
 
             if not found_path:
                 st.error("Model extraction failed. config.json was not found in the model zip.")
@@ -373,9 +388,18 @@ def ensure_model_exists():
                 shutil.rmtree(model_dir)
             shutil.copytree(found_path, model_dir)
 
+            # Some zips keep label_encoder.pkl outside the actual Transformers model folder.
+            # Copy it into the model folder so classification labels do not break after extraction cleanup.
+            model_encoder_path = os.path.join(model_dir, "label_encoder.pkl")
+            if encoder_found_path and not os.path.exists(model_encoder_path):
+                shutil.copy2(encoder_found_path, model_encoder_path)
+
             shutil.rmtree(extract_dir, ignore_errors=True)
             if os.path.exists(zip_path):
                 os.remove(zip_path)
+    except zipfile.BadZipFile:
+        st.error("Downloaded model file is not a valid zip. Please check the Google Drive model file.")
+        st.stop()
     except Exception as e:
         st.error(f"Model loading failed: {e}")
         st.stop()
@@ -425,7 +449,8 @@ def load_models():
     return label_encoder, classifier
 
 
-label_encoder, classifier = load_models()
+# Models are loaded only after the user clicks Analyze.
+# This keeps the frontend fast and avoids startup crashes on Streamlit Cloud.
 
 
 # -----------------------------
@@ -475,9 +500,16 @@ def extract_name(text):
     lines = [line.strip() for line in (text or "").split("\n") if line.strip()]
     blacklist = [
         "resume", "curriculum", "vitae", "developer", "engineer", "email",
-        "phone", "linkedin", "github", "address", "objective", "profile",
-        "skills", "experience", "education", "contact",
+        "phone", "mobile", "contact", "linkedin", "github", "address",
+        "objective", "profile", "summary", "skills", "experience", "education",
+        "certification", "project", "portfolio", "dob", "gender",
     ]
+
+    for line in lines[:20]:
+        name_match = re.search(r"(?:candidate\s*)?name\s*[:\-]\s*([A-Za-z][A-Za-z .]{1,45})", line, re.IGNORECASE)
+        if name_match:
+            return re.sub(r"\s+", " ", name_match.group(1)).strip().title()
+
     for line in lines[:15]:
         lower = line.lower()
         if any(word in lower for word in blacklist):
@@ -489,9 +521,12 @@ def extract_name(text):
             return line.title()
     return "Unknown Candidate"
 
-
 def extract_experience(text):
     text = (text or "").lower()
+
+    if re.search(r"\bfresher\b|entry[-\s]?level|no prior experience", text):
+        return "Fresher"
+
     patterns = [
         r"(\d+(?:\.\d+)?)\+?\s*(?:years|year|yrs|yr)\s*(?:of)?\s*(?:experience|exp)?",
         r"experience\s*(?:of)?\s*(\d+(?:\.\d+)?)\+?\s*(?:years|year|yrs|yr)",
@@ -500,14 +535,20 @@ def extract_experience(text):
     for pattern in patterns:
         matches.extend(re.findall(pattern, text))
 
-    if not matches:
-        return "Fresher"
+    if matches:
+        years = max(float(x) for x in matches)
+        if years <= 0:
+            return "Fresher"
+        return f"{years:.1f} Years"
 
-    years = max(float(x) for x in matches)
-    if years <= 0:
-        return "Fresher"
-    return f"{years:.1f} Years"
+    month_matches = re.findall(r"(\d+)\+?\s*(?:months|month|mos|mo)\s*(?:of)?\s*(?:experience|exp|internship)?", text)
+    if month_matches:
+        months = max(int(x) for x in month_matches)
+        if months >= 12:
+            return f"{months / 12:.1f} Years"
+        return f"{months} Months"
 
+    return "Fresher"
 
 def calculate_match_score(jd, resume):
     jd = jd or ""
@@ -518,11 +559,45 @@ def calculate_match_score(jd, resume):
         vectorizer = TfidfVectorizer(stop_words="english")
         vectors = vectorizer.fit_transform([jd, resume])
         similarity = cosine_similarity(vectors[0:1], vectors[1:2])[0][0]
-        return round(float(similarity * 100), 2)
+        return round(max(0.0, min(float(similarity * 100), 100.0)), 2)
     except ValueError:
         return 0.0
     except Exception:
         return 0.0
+
+
+def decode_prediction_label(label, label_encoder):
+    label_text = str(label or "").strip()
+    if not label_text:
+        return "Unknown"
+
+    classes = getattr(label_encoder, "classes_", None)
+    if classes is not None and label_text in set(map(str, classes)):
+        return label_text
+
+    # Handles LABEL_0, LABEL-0, label_0, or plain numeric labels.
+    match = re.search(r"(\d+)$", label_text)
+    if match:
+        label_id = int(match.group(1))
+        try:
+            if classes is not None and 0 <= label_id < len(classes):
+                return str(label_encoder.inverse_transform([label_id])[0])
+        except Exception:
+            return "Unknown"
+
+    return label_text
+
+
+def make_input_signature(jd_text, files):
+    file_signature = tuple(
+        (
+            getattr(file, "name", ""),
+            getattr(file, "size", None),
+            getattr(file, "type", ""),
+        )
+        for file in (files or [])
+    )
+    return (clean_text(jd_text), file_signature)
 
 
 def read_pdf(file):
@@ -532,17 +607,23 @@ def read_pdf(file):
         if not pdf_bytes:
             return None
 
-        pdf = fitz.open(stream=pdf_bytes, filetype="pdf")
-        text = ""
-        for page in pdf:
-            text += page.get_text("text") + "\n"
-        pdf.close()
-        return text.strip()
+        text_parts = []
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as pdf:
+            if pdf.is_encrypted:
+                try:
+                    pdf.authenticate("")
+                except Exception:
+                    return None
+
+            for page in pdf:
+                text_parts.append(page.get_text("text") or "")
+
+        return "\n".join(text_parts).strip()
     except Exception:
         return None
 
 
-def analyze_resume(file, jd_text):
+def analyze_resume(file, jd_text, label_encoder, classifier):
     raw_text = read_pdf(file)
     if not raw_text or len(raw_text) < 30:
         return {
@@ -561,14 +642,14 @@ def analyze_resume(file, jd_text):
 
     try:
         prediction = classifier(cleaned[:4000], truncation=True, max_length=512)
-        label = prediction[0].get("label", "Unknown")
+        if isinstance(prediction, list) and prediction and isinstance(prediction[0], list):
+            prediction = prediction[0]
 
-        # Hugging Face commonly returns LABEL_0, LABEL_1 etc.
-        if "_" in label and label.split("_")[-1].isdigit():
-            label_id = int(label.split("_")[-1])
-            category = label_encoder.inverse_transform([label_id])[0]
+        if not isinstance(prediction, list) or not prediction:
+            category = "Unknown"
         else:
-            category = label
+            label = prediction[0].get("label", "Unknown")
+            category = decode_prediction_label(label, label_encoder)
     except Exception:
         category = "Unknown"
 
@@ -621,7 +702,10 @@ def render_cards(dataframe, show_duplicate_status=False):
         return
 
     for _, row in dataframe.iterrows():
-        score = float(row.get("Score", 0) or 0)
+        try:
+            score = float(row.get("Score", 0) or 0)
+        except (TypeError, ValueError):
+            score = 0.0
         duplicate_status = row.get("Duplicate Status", "Unique")
         emoji = "⚠️" if "Duplicate" in str(duplicate_status) else ("🏆" if score >= 75 else "👨‍💻")
 
@@ -638,7 +722,7 @@ def render_cards(dataframe, show_duplicate_status=False):
                 st.warning(f"Duplicate Status: {duplicate_status}")
         with c2:
             st.metric("Match Score", f"{score}%")
-            st.progress(min(score / 100, 1.0))
+            st.progress(max(0.0, min(score / 100, 1.0)))
 
         with st.expander("Preview Resume"):
             st.text(row.get("Preview", "No preview available"))
@@ -672,15 +756,32 @@ with st.sidebar:
     st.markdown("---")
     analyze_button = st.button("🚀 Analyze Resumes", use_container_width=True)
 
+current_input_signature = make_input_signature(jd_input, uploaded_files)
+if (
+    st.session_state.processed
+    and st.session_state.last_input_signature is not None
+    and current_input_signature != st.session_state.last_input_signature
+    and not analyze_button
+):
+    st.session_state.processed = False
+    st.session_state.results = pd.DataFrame()
+
 if analyze_button:
-    if not uploaded_files:
+    if not jd_input.strip():
+        st.warning("Please enter job description")
+        st.session_state.processed = False
+        st.session_state.results = pd.DataFrame()
+    elif not uploaded_files:
         st.warning("Please upload resumes")
+        st.session_state.processed = False
+        st.session_state.results = pd.DataFrame()
     else:
+        label_encoder, classifier = load_models()
         progress = st.progress(0)
         results = []
 
         for index, file in enumerate(uploaded_files):
-            result = analyze_resume(file, jd_input)
+            result = analyze_resume(file, jd_input, label_encoder, classifier)
             results.append(result)
             progress.progress((index + 1) / len(uploaded_files))
 
@@ -690,6 +791,7 @@ if analyze_button:
         df = df.sort_values(by="Score", ascending=False).reset_index(drop=True)
         st.session_state.results = df
         st.session_state.processed = True
+        st.session_state.last_input_signature = current_input_signature
 
 if st.session_state.processed and not st.session_state.results.empty:
     df = st.session_state.results.copy()
@@ -716,11 +818,11 @@ if st.session_state.processed and not st.session_state.results.empty:
         render_cards(df[df["Score"] >= 50])
 
     with tabs[2]:
-        experienced_df = df[~df["Experience"].str.contains("Fresher|Unknown", case=False, na=False)]
+        experienced_df = df[~df["Experience"].astype(str).str.contains("Fresher|Unknown", case=False, na=False)]
         render_cards(experienced_df)
 
     with tabs[3]:
-        fresher_df = df[df["Experience"].str.contains("Fresher", case=False, na=False)]
+        fresher_df = df[df["Experience"].astype(str).str.contains("Fresher", case=False, na=False)]
         render_cards(fresher_df)
 
     with tabs[4]:
